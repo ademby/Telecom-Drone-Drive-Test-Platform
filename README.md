@@ -65,9 +65,35 @@ cp apps/frontend/.env.example apps/frontend/.env
 
 `VITE_API_BASE_URL` is required. The frontend talks only to the NestJS backend over HTTP (MockMissionApi has been removed).
 
+## Lifecycle scripts
+
+After a **fresh clone** (once `npm install` has finished):
+
+```bash
+npm run setup
+```
+
+Creates `.env` files if missing, starts PostgreSQL (Podman), waits until ready, generates Prisma client, applies migrations, and seeds signal-quality + demo missions. Admin boundary GeoJSON under `apps/frontend/public/data/` must already be present (committed runtime data).
+
+After **rebooting** (or whenever the DB pod is stopped; volume data is kept):
+
+```bash
+npm run resume
+```
+
+Starts PostgreSQL and waits until ready. Does not re-seed.
+
+**Launch** the full stack (frontend, backend, drone-mock):
+
+```bash
+npm run start
+```
+
+(`npm run dev` is the same command.)
+
 ## Development
 
-Start PostgreSQL first:
+Start PostgreSQL first (or use `npm run resume`):
 
 ```bash
 npm run db:up
@@ -76,7 +102,7 @@ npm run db:up
 Then start the full application development stack:
 
 ```bash
-npm run dev
+npm run start
 ```
 
 This starts:
@@ -247,6 +273,3 @@ The backend loads `apps/backend/.env` at runtime through `dotenv/config`; the ch
 
 The drone mock is intentionally a development integration harness. It calls the real backend claim/status endpoints and does not represent a production drone protocol or authentication layer.
 
-## Architecture redesign backlog
-
-The ordered redesign work is tracked in `TODO.md`; implementation-agent tickets are under `docs/tasks/`.
