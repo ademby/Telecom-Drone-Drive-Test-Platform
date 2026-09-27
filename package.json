@@ -7,6 +7,9 @@
     "packages/*"
   ],
   "scripts": {
+    "setup": "node tools/setup.mjs bootstrap",
+    "resume": "node tools/setup.mjs resume",
+    "start": "node tools/dev.mjs",
     "dev": "node tools/dev.mjs",
     "dev:frontend": "npm run dev --workspace @drone-drive/frontend",
     "dev:backend": "npm run dev --workspace @drone-drive/backend",
