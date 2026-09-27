@@ -153,8 +153,14 @@ export class CompositionRoot {
         missionWorkflowRef?.review.approveSelected(),
       onRejectSelectedMeasurements: () =>
         missionWorkflowRef?.review.rejectSelected(),
-      onToggleSignalQuality: () => void this.heatmapWorkflow.toggle(),
-      onRefreshSignalQuality: () => void this.heatmapWorkflow.refresh(),
+    };
+
+    const heatmapCallbacks = {
+      onToggle: () =>
+        void this.heatmapWorkflow.toggle().then((visible) =>
+          this.operationsPanel.setSignalQualityToggleState(visible),
+        ),
+      onRefresh: () => void this.heatmapWorkflow.refresh(),
       onPaletteChange: (palette: SignalQualityPalette) => {
         try {
           this.heatmapWorkflow.setPalette(palette);
@@ -167,6 +173,7 @@ export class CompositionRoot {
 
     this.operationsPanel = new OperationsPanel(
       missionCallbacks,
+      heatmapCallbacks,
       this.heatmapWorkflow.getPalette(),
     );
 
@@ -198,7 +205,11 @@ export class CompositionRoot {
     const compositionRoot = new CompositionRoot(mapController, adminDataset);
     compositionRoot.navigationWorkflow.showInitialRoot();
     void compositionRoot.missionWorkflow.load();
-    void compositionRoot.heatmapWorkflow.load();
+    void compositionRoot.heatmapWorkflow.load().then(() =>
+      compositionRoot.operationsPanel.setSignalQualityToggleState(
+        compositionRoot.heatmapWorkflow.isVisible(),
+      ),
+    );
     return compositionRoot;
   }
 

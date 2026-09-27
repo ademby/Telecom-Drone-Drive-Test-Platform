@@ -1,4 +1,10 @@
 import type { SignalQualityPalette } from './SignalQualityPalette.js';
+import type { PanelView } from '../../ui/PanelView.js';
+import {
+  heatmapNavCardTemplate,
+  heatmapSectionTemplate,
+  paletteStopRowTemplate,
+} from './HeatmapOperationsViewTemplate.js';
 
 export interface HeatmapOperationsViewCallbacks {
   onToggle(): void;
@@ -8,24 +14,47 @@ export interface HeatmapOperationsViewCallbacks {
 }
 
 export class HeatmapOperationsView {
+  /** Bundles this view's `.panel-view` section and its home-screen `.panel-group` nav
+   *  card so `OperationsPanel.registerView` can insert both without knowing this
+   *  workflow's markup. See docs/adr/0005-workflow-owned-map-surface-and-ui.md. */
+  readonly panelView: PanelView;
+  readonly element: HTMLElement;
   private readonly stopsContainer: HTMLElement;
+  private readonly toggleButton: HTMLButtonElement;
 
   constructor(
-    readonly element: HTMLElement,
     initialPalette: SignalQualityPalette,
     private readonly callbacks: HeatmapOperationsViewCallbacks,
   ) {
-    element.querySelector('.toggle-kpi')?.addEventListener('click', callbacks.onToggle);
+    const navCardElement = document.createElement('div');
+    navCardElement.className = 'panel-group';
+    navCardElement.innerHTML = heatmapNavCardTemplate;
+
+    const sectionElement = document.createElement('section');
+    sectionElement.className = 'panel-view panel-heatmap hidden';
+    sectionElement.innerHTML = heatmapSectionTemplate;
+
+    this.element = sectionElement;
+    this.panelView = { id: 'heatmap', title: 'Signal quality', sectionElement, navCardElement };
+
+    this.toggleButton = sectionElement.querySelector('.toggle-kpi') as HTMLButtonElement;
+    this.toggleButton?.addEventListener('click', callbacks.onToggle);
     // Tiles are cached client-side by data version; measurements reviewed/finalized elsewhere
     // won't appear until this re-fetches the current version. See HeatmapWorkflow.refresh().
-    element.querySelector('.refresh-kpi')?.addEventListener('click', callbacks.onRefresh);
-    this.stopsContainer = element.querySelector('.palette-stops') as HTMLElement;
-    element.querySelector('.palette-add-stop')?.addEventListener('click', () => this.addStop());
-    element.querySelector('.palette-reset')?.addEventListener('click', () => {
+    sectionElement.querySelector('.refresh-kpi')?.addEventListener('click', callbacks.onRefresh);
+    this.stopsContainer = sectionElement.querySelector('.palette-stops') as HTMLElement;
+    sectionElement.querySelector('.palette-add-stop')?.addEventListener('click', () => this.addStop());
+    sectionElement.querySelector('.palette-reset')?.addEventListener('click', () => {
       callbacks.onPaletteReset();
       this.renderPalette(initialPalette);
     });
     this.renderPalette(initialPalette);
+  }
+
+  /** Reflects current visibility on the toggle button ("Show" ↔ "Hide signal quality"). */
+  setToggleState(visible: boolean): void {
+    if (!this.toggleButton) return;
+    this.toggleButton.textContent = visible ? 'Hide signal quality' : 'Show signal quality';
   }
 
   /** Re-renders the stop editor rows to reflect an externally-set palette (e.g. after reset). */
@@ -34,11 +63,7 @@ export class HeatmapOperationsView {
     palette.forEach((stop, index) => {
       const row = document.createElement('div');
       row.className = 'palette-stop';
-      /*html*/
-      row.innerHTML = `
-        <input type="color" class="palette-color" value="${stop.color}">
-        <input type="number" class="palette-offset" min="0" max="1" step="0.05" value="${stop.offset}">
-        <button type="button" class="icon-button palette-remove" aria-label="Remove stop">×</button>`;
+      row.innerHTML = paletteStopRowTemplate(stop);
       const colorInput = row.querySelector('.palette-color') as HTMLInputElement;
       const offsetInput = row.querySelector('.palette-offset') as HTMLInputElement;
       const removeButton = row.querySelector('.palette-remove') as HTMLButtonElement;

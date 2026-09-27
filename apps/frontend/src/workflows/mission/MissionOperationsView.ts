@@ -2,6 +2,13 @@ import type { DroneId, Mission, MissionState } from '@drone-drive/contracts/miss
 import type { MissionEditorMode } from './MissionEditor.js';
 import type { MissionResult } from '@drone-drive/contracts/mission-result';
 import { colorMeasurementsBySignalQuality } from '../heatmap/SignalQualityPalette.js';
+import type { PanelView } from '../../ui/PanelView.js';
+import {
+  missionsNavCardTemplate,
+  missionsSectionTemplate,
+  missionEditorSectionTemplate,
+  missionReviewSectionTemplate,
+} from './MissionOperationsViewTemplate.js';
 
 export interface MissionOperationsViewCallbacks {
   onNew(): void;
@@ -35,6 +42,13 @@ export interface MissionFormData {
 }
 
 export class MissionOperationsView {
+  /** One `PanelView` per section this workflow owns, for `OperationsPanel.registerView`.
+   *  Only "missions" carries a home nav card; editor/review are reached from it.
+   *  See docs/adr/0005-workflow-owned-map-surface-and-ui.md. */
+  readonly panelViews: readonly PanelView[];
+  private readonly listElement: HTMLElement;
+  private readonly editorElement: HTMLElement;
+  private readonly reviewElement: HTMLElement;
   private readonly callbacks: MissionOperationsViewCallbacks;
   private readonly list: HTMLDivElement;
   private readonly nameInput: HTMLInputElement;
@@ -58,12 +72,35 @@ export class MissionOperationsView {
   private rowsById = new Map<string, HTMLLIElement>();
   private measurementCount = 0;
 
-  constructor(
-    private readonly listElement: HTMLElement,
-    private readonly editorElement: HTMLElement,
-    private readonly reviewElement: HTMLElement,
-    callbacks: MissionOperationsViewCallbacks,
-  ) {
+  constructor(callbacks: MissionOperationsViewCallbacks) {
+    const navCardElement = document.createElement('div');
+    navCardElement.className = 'panel-group';
+    navCardElement.innerHTML = missionsNavCardTemplate;
+
+    const listElement = document.createElement('section');
+    listElement.className = 'panel-view panel-missions hidden';
+    listElement.innerHTML = missionsSectionTemplate;
+
+    const editorElement = document.createElement('section');
+    editorElement.className = 'panel-view panel-editor hidden';
+    editorElement.innerHTML = missionEditorSectionTemplate;
+
+    const reviewElement = document.createElement('section');
+    reviewElement.className = 'panel-view panel-review hidden';
+    reviewElement.innerHTML = missionReviewSectionTemplate;
+
+    this.listElement = listElement;
+    this.editorElement = editorElement;
+    this.reviewElement = reviewElement;
+    this.panelViews = [
+      { id: 'missions', title: 'Missions', sectionElement: listElement, navCardElement },
+      // Reached only from the missions list; each already wires its own
+      // .back-button below to MissionWorkflow.back(), not a plain panel
+      // navigation change, so registerView must not auto-wire it too.
+      { id: 'editor', title: 'Mission editor', sectionElement: editorElement, autoWireBackButton: false },
+      { id: 'review', title: 'Mission validation', sectionElement: reviewElement, autoWireBackButton: false },
+    ];
+
     this.callbacks = callbacks;
     this.list = listElement.querySelector('.mission-list') as HTMLDivElement;
     this.nameInput = editorElement.querySelector('input[name="name"]') as HTMLInputElement;

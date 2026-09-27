@@ -90,17 +90,22 @@ export class HeatmapWorkflow {
     this.legend.setRange(range.min, range.max);
   }
 
-  async toggle(): Promise<void> {
+  isVisible(): boolean {
+    return this.visible;
+  }
+
+  async toggle(): Promise<boolean> {
     if (this.visible) {
       this.visible = false;
       this.renderer.setVisible(false);
       this.legend.element.style.display = "none";
-      return;
+      return this.visible;
     }
     if (!this.dataLoaded) await this.load();
     this.visible = true;
     this.renderer.setVisible(true);
     this.legend.element.style.display = "block";
+    return this.visible;
   }
 }
 
