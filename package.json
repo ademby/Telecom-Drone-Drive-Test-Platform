@@ -44,10 +44,5 @@
     "deepmerge-ts": "8.0.0",
     "mysql2": "3.23.1",
     "multer": "2.3.0"
-  },
-  "engines": {
-    "node": ">=22.22.3",
-    "npm": ">=10"
-  },
-  "packageManager": "npm@10.9.2"
+  }
 }

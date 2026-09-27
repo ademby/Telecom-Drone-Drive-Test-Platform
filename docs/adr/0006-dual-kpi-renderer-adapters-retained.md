@@ -1,7 +1,3 @@
----
-status: accepted
----
-
 # Keep both Signal Quality renderer adapters behind one `KpiRenderer` interface
 
 `SignalQualityTileSource_ForWebGL` / `SignalQualityVisualizer_ForWebGL` looked like abandoned prototype duplication next to the live Canvas-worker path (`SignalQualityTileSource` / `SignalQualityVisualizer`), and an architecture review flagged them for deletion as dead code with no second live caller.

@@ -117,7 +117,6 @@ classDiagram
     class MissionWorkflow {
         +load()
         +select()
-        +toggle()
     }
     class HeatmapWorkflow {
         +toggle()

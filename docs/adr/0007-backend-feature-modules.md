@@ -1,7 +1,3 @@
----
-status: accepted
----
-
 # Backend splits into Mission, MissionResult, and SignalQuality feature modules
 
 `apps/backend/src` was a single flat directory (14 files) wired into one `AppModule`, with a real circular dependency hidden by the flatness: `MissionResultService.review()` calls `SignalQualityService.invalidate()` on finalize, while `SignalQualityService` reads approved measurements straight from `PrismaMissionResultRepository`.

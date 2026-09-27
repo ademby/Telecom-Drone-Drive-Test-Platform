@@ -1,7 +1,3 @@
----
-status: accepted
----
-
 # Route-centric missions, backend-controlled execution, and explicit KPI terminology
 
 ## Context

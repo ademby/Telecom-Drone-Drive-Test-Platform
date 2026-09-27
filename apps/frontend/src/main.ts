@@ -8,8 +8,6 @@ async function main(): Promise<void> {
     Object.defineProperty(globalThis, "compositionRoot", {
       value: compositionRoot,
     });
-    compositionRoot.heatmapWorkflow.toggle();
-    document.querySelector(".operations-panel")?.classList.add("retracted");
   }
 }
 

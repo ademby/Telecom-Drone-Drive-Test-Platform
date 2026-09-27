@@ -1,7 +1,3 @@
----
-status: accepted
----
-
 # Workflows own their map layers and UI; MapController stays thin
 
 Previously each workflow received a bespoke `*MapWorkspace` interface (e.g. `NavigationMapWorkspace`, `HeatmapMapWorkspace`) through which `MapController` exposed one setter per concern (`setContext`, `setMission`, `setKpiPalette`, ...). Every new workflow concept meant widening `MapController` again, and each pass-through interface had exactly one adapter — never a real seam.

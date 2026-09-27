@@ -2,43 +2,15 @@
 
 A TypeScript npm-workspace monorepo for planning and executing telecom drone drive-test missions, collecting results, validating measurements, and presenting geographic signal-quality data.
 
-## Repository layout
-
-```text
-.
-├── apps/
-│   ├── frontend/          # Vite + OpenLayers operator console
-│   ├── backend/           # NestJS + Prisma API
-│   └── drone-mock/        # local drone integration simulator
-├── packages/
-│   └── contracts/         # shared TypeScript domain/API contracts
-├── tools/
-│   ├── dev.mjs, clean.mjs, watch-service.mjs  # lifecycle
-│   ├── db/                # database pod + seed scripts
-│   └── data-pipeline/     # source inputs, generators, reports
-├── docs/
-│   ├── adr/
-│   └── uml/
-├── tsconfig.base.json
-├── package.json
-├── package-lock.json
-```
-
-The three applications stay independently runnable. Shared contracts live in `packages/contracts` so frontend, backend, and drone tooling do not copy API/domain types.
-
 ## Requirements
 
-Use Node.js 22+ and npm 10+.
+`node`, `npm` and `podman`.
 
 ```bash
 node --version
 npm --version
+podman --version
 ```
-
-The repository enforces the Node/npm engine range through `.npmrc`.
-
-PostgreSQL runs inside a dedicated Podman pod.
-
 
 ## Install
 
