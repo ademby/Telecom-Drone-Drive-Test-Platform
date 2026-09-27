@@ -16,8 +16,6 @@ __pycache__/
 .DS_Store
 *.tsbuildinfo
 
-.test-dist/
-
 .agents/
 .claude/
 

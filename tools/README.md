@@ -4,7 +4,7 @@ Hierarchy:
 
 ```text
 tools/
-├── clean.mjs, dev.mjs, test.mjs, watch-service.mjs   # lifecycle
+├── clean.mjs, dev.mjs, watch-service.mjs   # lifecycle
 ├── db/                                               # database / seed
 │   ├── podman-db.mjs
 │   ├── seed-demo-missions.mts

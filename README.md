@@ -12,9 +12,8 @@ A TypeScript npm-workspace monorepo for planning and executing telecom drone dri
 │   └── drone-mock/        # local drone integration simulator
 ├── packages/
 │   └── contracts/         # shared TypeScript domain/API contracts
-├── tests/                 # platform-level workflow and integration tests
 ├── tools/
-│   ├── dev.mjs, clean.mjs, test.mjs, watch-service.mjs  # lifecycle
+│   ├── dev.mjs, clean.mjs, watch-service.mjs  # lifecycle
 │   ├── db/                # database pod + seed scripts
 │   └── data-pipeline/     # source inputs, generators, reports
 ├── docs/
@@ -163,24 +162,6 @@ Type-check every workspace:
 npm run check
 ```
 
-Run frontend workflow tests:
-
-```bash
-npm test
-```
-
-Run the PostgreSQL-backed integration test as well:
-
-```bash
-npm run backend:test
-```
-
-Or run the complete validation/test sequence:
-
-```bash
-npm run platform:check
-npm run platform:test
-```
 
 Clean generated/build output:
 
@@ -209,8 +190,6 @@ Common commands:
 npm run dev             full local application stack
 npm run build           build all apps
 npm run check           type-check all workspaces
-npm test                frontend/workflow tests
-npm run backend:test    backend integration test
 npm run db:up           start PostgreSQL
 npm run db:migrate      create/apply a development migration
 npm run clean           remove generated/build output

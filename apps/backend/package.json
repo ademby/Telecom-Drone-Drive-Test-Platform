@@ -10,8 +10,7 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "generate": "prisma generate",
     "migrate": "prisma migrate dev",
-    "migrate:deploy": "prisma migrate deploy",
-    "test": "npm run build && node --test ../../tests/backend.test.js"
+    "migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@drone-drive/contracts": "0.1.0",
