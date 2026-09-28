@@ -1,6 +1,6 @@
 import type { SignalQualityApi } from "@drone-drive/contracts/signal-quality";
 import { MapController } from "../../map/MapController.js";
-import OperationsPanel from "../../ui/OperationsPanel.js";
+import OperationsPanel from "../../common/OperationsPanel.js";
 import { HeatmapOperationsView } from "./HeatmapOperationsView.js";
 import HttpSignalQualityApi from "./HttpSignalQualityApi.js";
 import SignalQualityLegend from "./SignalQualityLegend.js";

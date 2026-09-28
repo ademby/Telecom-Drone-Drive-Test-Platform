@@ -1,16 +1,19 @@
-import type { DroneId, Mission, MissionState } from '@drone-drive/contracts/mission';
-import type { MissionResult } from '@drone-drive/contracts/mission-result';
-import type { PanelView } from '../../ui/PanelView.js';
-import { colorMeasurementsBySignalQuality } from '../heatmap/SignalQualityPalette.js';
-import type { MissionEditorMode } from './MissionEditor.js';
+import type {
+  DroneId,
+  Mission,
+  MissionState,
+} from "@drone-drive/contracts/mission";
+import type { MissionResult } from "@drone-drive/contracts/mission-result";
+import type { PanelView } from "../../common/PanelView.js";
+import { colorMeasurementsBySignalQuality } from "../heatmap/SignalQualityPalette.js";
+import type { MissionEditorMode } from "./MissionEditor.js";
 import {
   missionEditorSectionTemplate,
   missionReviewSectionTemplate,
   missionsNavCardTemplate,
   missionsSectionTemplate,
-} from './MissionOperationsViewTemplate.js';
-import MissionWorkflow from './MissionWorkflow.js';
-
+} from "./MissionOperationsViewTemplate.js";
+import MissionWorkflow from "./MissionWorkflow.js";
 
 export interface MissionFormData {
   name: string;
@@ -51,124 +54,237 @@ export class MissionOperationsView {
   private measurementCount = 0;
 
   constructor(missionWorkflow: MissionWorkflow) {
-    const navCardElement = document.createElement('div');
-    navCardElement.className = 'panel-group';
+    const navCardElement = document.createElement("div");
+    navCardElement.className = "panel-group";
     navCardElement.innerHTML = missionsNavCardTemplate;
 
-    const listElement = document.createElement('section');
-    listElement.className = 'panel-view panel-missions hidden';
+    const listElement = document.createElement("section");
+    listElement.className = "panel-view panel-missions hidden";
     listElement.innerHTML = missionsSectionTemplate;
 
-    const editorElement = document.createElement('section');
-    editorElement.className = 'panel-view panel-editor hidden';
+    const editorElement = document.createElement("section");
+    editorElement.className = "panel-view panel-editor hidden";
     editorElement.innerHTML = missionEditorSectionTemplate;
 
-    const reviewElement = document.createElement('section');
-    reviewElement.className = 'panel-view panel-review hidden';
+    const reviewElement = document.createElement("section");
+    reviewElement.className = "panel-view panel-review hidden";
     reviewElement.innerHTML = missionReviewSectionTemplate;
 
     this.listElement = listElement;
     this.editorElement = editorElement;
     this.reviewElement = reviewElement;
     this.panelViews = [
-      { id: 'missions', title: 'Missions', sectionElement: listElement, navCardElement },
+      {
+        id: "missions",
+        title: "Missions",
+        sectionElement: listElement,
+        navCardElement,
+      },
       // Reached only from the missions list; each already wires its own
       // .back-button below to MissionWorkflow.back(), not a plain panel
       // navigation change, so registerView must not auto-wire it too.
-      { id: 'editor', title: 'Mission editor', sectionElement: editorElement, autoWireBackButton: false },
-      { id: 'review', title: 'Mission validation', sectionElement: reviewElement, autoWireBackButton: false },
+      {
+        id: "editor",
+        title: "Mission editor",
+        sectionElement: editorElement,
+        autoWireBackButton: false,
+      },
+      {
+        id: "review",
+        title: "Mission validation",
+        sectionElement: reviewElement,
+        autoWireBackButton: false,
+      },
     ];
 
     this.missionWorkflow = missionWorkflow;
-    this.list = listElement.querySelector('.mission-list') as HTMLDivElement;
-    this.nameInput = editorElement.querySelector('input[name="name"]') as HTMLInputElement;
-    this.startInput = editorElement.querySelector('input[name="start"]') as HTMLInputElement;
-    this.deadlineInput = editorElement.querySelector('input[name="deadline"]') as HTMLInputElement;
-    this.droneSelect = editorElement.querySelector('select[name="drone"]') as HTMLSelectElement;
-    this.planButton = editorElement.querySelector('.plan') as HTMLButtonElement;
-    this.cancelMissionButton = editorElement.querySelector('.cancel-mission') as HTMLButtonElement;
-    this.retryMissionButton = editorElement.querySelector('.retry-mission') as HTMLButtonElement;
-    this.reviewMissionName = reviewElement.querySelector('.review-mission-name') as HTMLElement;
-    this.reviewStateBadge = reviewElement.querySelector('.review-state-badge') as HTMLElement;
-    this.resultLoading = reviewElement.querySelector('.result-loading') as HTMLElement;
-    this.resultEmpty = reviewElement.querySelector('.result-empty') as HTMLElement;
-    this.resultToolbar = reviewElement.querySelector('.result-toolbar') as HTMLElement;
-    this.selectionSummary = reviewElement.querySelector('.selection-summary') as HTMLElement;
-    this.resultList = reviewElement.querySelector('.result-measurements') as HTMLUListElement;
-    this.resultStatus = reviewElement.querySelector('.result-status') as HTMLElement;
-    this.saveReviewButton = reviewElement.querySelector('.save-review') as HTMLButtonElement;
-    this.finalizeReviewButton = reviewElement.querySelector('.finalize-review') as HTMLButtonElement;
+    this.list = listElement.querySelector(".mission-list") as HTMLDivElement;
+    this.nameInput = editorElement.querySelector(
+      'input[name="name"]',
+    ) as HTMLInputElement;
+    this.startInput = editorElement.querySelector(
+      'input[name="start"]',
+    ) as HTMLInputElement;
+    this.deadlineInput = editorElement.querySelector(
+      'input[name="deadline"]',
+    ) as HTMLInputElement;
+    this.droneSelect = editorElement.querySelector(
+      'select[name="drone"]',
+    ) as HTMLSelectElement;
+    this.planButton = editorElement.querySelector(".plan") as HTMLButtonElement;
+    this.cancelMissionButton = editorElement.querySelector(
+      ".cancel-mission",
+    ) as HTMLButtonElement;
+    this.retryMissionButton = editorElement.querySelector(
+      ".retry-mission",
+    ) as HTMLButtonElement;
+    this.reviewMissionName = reviewElement.querySelector(
+      ".review-mission-name",
+    ) as HTMLElement;
+    this.reviewStateBadge = reviewElement.querySelector(
+      ".review-state-badge",
+    ) as HTMLElement;
+    this.resultLoading = reviewElement.querySelector(
+      ".result-loading",
+    ) as HTMLElement;
+    this.resultEmpty = reviewElement.querySelector(
+      ".result-empty",
+    ) as HTMLElement;
+    this.resultToolbar = reviewElement.querySelector(
+      ".result-toolbar",
+    ) as HTMLElement;
+    this.selectionSummary = reviewElement.querySelector(
+      ".selection-summary",
+    ) as HTMLElement;
+    this.resultList = reviewElement.querySelector(
+      ".result-measurements",
+    ) as HTMLUListElement;
+    this.resultStatus = reviewElement.querySelector(
+      ".result-status",
+    ) as HTMLElement;
+    this.saveReviewButton = reviewElement.querySelector(
+      ".save-review",
+    ) as HTMLButtonElement;
+    this.finalizeReviewButton = reviewElement.querySelector(
+      ".finalize-review",
+    ) as HTMLButtonElement;
 
-    listElement.querySelector('.new-mission')?.addEventListener('click', () => missionWorkflow.create());
-    editorElement.querySelector('.save')?.addEventListener('click', () => missionWorkflow.save(this.getFormData()));
-    editorElement.querySelector('.plan')?.addEventListener('click', () => missionWorkflow.plan());
-    editorElement.querySelector('.cancel')?.addEventListener('click', () => missionWorkflow.cancel());
-    editorElement.querySelector('.back-button')?.addEventListener('click', () => missionWorkflow.back());
-    reviewElement.querySelector('.back-button')?.addEventListener('click', () => missionWorkflow.back());
-    this.cancelMissionButton.addEventListener('click', () => {
-      if (window.confirm('Cancel this mission? This cannot be undone.')) missionWorkflow.cancelMission();
+    listElement
+      .querySelector(".new-mission")
+      ?.addEventListener("click", () => missionWorkflow.create());
+    editorElement
+      .querySelector(".save")
+      ?.addEventListener("click", () =>
+        missionWorkflow.save(this.getFormData()),
+      );
+    editorElement
+      .querySelector(".plan")
+      ?.addEventListener("click", () => missionWorkflow.plan());
+    editorElement
+      .querySelector(".cancel")
+      ?.addEventListener("click", () => missionWorkflow.cancel());
+    editorElement
+      .querySelector(".back-button")
+      ?.addEventListener("click", () => missionWorkflow.back());
+    reviewElement
+      .querySelector(".back-button")
+      ?.addEventListener("click", () => missionWorkflow.back());
+    this.cancelMissionButton.addEventListener("click", () => {
+      if (window.confirm("Cancel this mission? This cannot be undone."))
+        missionWorkflow.cancelMission();
     });
-    this.retryMissionButton.addEventListener('click', () => missionWorkflow.retry());
-    this.saveReviewButton.addEventListener('click', () => void missionWorkflow.saveReview(missionWorkflow.review.getRejectedIds(),false));
-    this.finalizeReviewButton.addEventListener('click', () => missionWorkflow.saveReview(missionWorkflow.review.getRejectedIds(),true));
-    reviewElement.querySelector('.select-all-measurements')?.addEventListener('click', () => missionWorkflow.review.selectAll());
-    reviewElement.querySelector('.invert-measurement-selection')?.addEventListener('click', () => missionWorkflow.review.invertSelection());
-    reviewElement.querySelector('.clear-measurement-selection')?.addEventListener('click', () => missionWorkflow.review.clearSelection());
-    reviewElement.querySelector('.approve-selected-measurements')?.addEventListener('click', () => missionWorkflow.review.approveSelected());
-    reviewElement.querySelector('.reject-selected-measurements')?.addEventListener('click', () => missionWorkflow.review.rejectSelected());
-    editorElement.querySelectorAll('[data-tool]').forEach((button) => button.addEventListener('click', () => {
-      const tool = (button as HTMLButtonElement).dataset.tool;
-      if (tool === 'draw') missionWorkflow.startDraw();
-      if (tool === 'modify') missionWorkflow.startModify();
-      if (tool === 'translate') missionWorkflow.startTranslate();
-      if (tool === 'undo') missionWorkflow.undo();
-      if (tool === 'redo') missionWorkflow.redo();
-    }));
+    this.retryMissionButton.addEventListener("click", () =>
+      missionWorkflow.retry(),
+    );
+    this.saveReviewButton.addEventListener(
+      "click",
+      () =>
+        void missionWorkflow.saveReview(
+          missionWorkflow.review.getRejectedIds(),
+          false,
+        ),
+    );
+    this.finalizeReviewButton.addEventListener("click", () =>
+      missionWorkflow.saveReview(missionWorkflow.review.getRejectedIds(), true),
+    );
+    reviewElement
+      .querySelector(".select-all-measurements")
+      ?.addEventListener("click", () => missionWorkflow.review.selectAll());
+    reviewElement
+      .querySelector(".invert-measurement-selection")
+      ?.addEventListener("click", () =>
+        missionWorkflow.review.invertSelection(),
+      );
+    reviewElement
+      .querySelector(".clear-measurement-selection")
+      ?.addEventListener("click", () =>
+        missionWorkflow.review.clearSelection(),
+      );
+    reviewElement
+      .querySelector(".approve-selected-measurements")
+      ?.addEventListener("click", () =>
+        missionWorkflow.review.approveSelected(),
+      );
+    reviewElement
+      .querySelector(".reject-selected-measurements")
+      ?.addEventListener("click", () =>
+        missionWorkflow.review.rejectSelected(),
+      );
+    editorElement.querySelectorAll("[data-tool]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const tool = (button as HTMLButtonElement).dataset.tool;
+        if (tool === "draw") missionWorkflow.startDraw();
+        if (tool === "modify") missionWorkflow.startModify();
+        if (tool === "translate") missionWorkflow.startTranslate();
+        if (tool === "undo") missionWorkflow.undo();
+        if (tool === "redo") missionWorkflow.redo();
+      }),
+    );
   }
 
-  renderMissions(missions: readonly Mission[], selectedId: string | null): void {
+  renderMissions(
+    missions: readonly Mission[],
+    selectedId: string | null,
+  ): void {
     this.list.replaceChildren();
     if (!missions.length) {
-      this.list.innerHTML = '<p class="panel-empty">No missions yet. Create a mission to begin.</p>';
+      this.list.innerHTML =
+        '<p class="panel-empty">No missions yet. Create a mission to begin.</p>';
       return;
     }
     for (const mission of missions) {
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className = `mission-row ${mission.id === selectedId ? 'selected' : ''}`;
-      row.innerHTML = `<span>${escapeHtml(mission.name || 'Untitled mission')}</span><small>${formatState(mission.state)}</small>`;
-      row.addEventListener('click', () => this.missionWorkflow.select(mission.id));
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = `mission-row ${mission.id === selectedId ? "selected" : ""}`;
+      row.innerHTML = `<span>${escapeHtml(mission.name || "Untitled mission")}</span><small>${formatState(mission.state)}</small>`;
+      row.addEventListener("click", () =>
+        this.missionWorkflow.select(mission.id),
+      );
       this.list.appendChild(row);
     }
   }
 
   /** Mission CRUD: draft/planned/dispatched/running lifecycle — path editing, scheduling, plan/cancel/retry. */
   setEditor(mission: Mission | null, title: string): void {
-    const heading = this.editorElement.querySelector('.mission-editor h3');
+    const heading = this.editorElement.querySelector(".mission-editor h3");
     if (heading) heading.textContent = title;
     if (!mission) return;
     this.nameInput.value = mission.name;
     this.startInput.value = toLocalInputValue(mission.earliestStart);
-    this.deadlineInput.value = mission.dispatchDeadline ? toLocalInputValue(mission.dispatchDeadline) : '';
+    this.deadlineInput.value = mission.dispatchDeadline
+      ? toLocalInputValue(mission.dispatchDeadline)
+      : "";
     this.droneSelect.value = mission.droneId;
-    const editable = mission.state === 'DRAFT';
+    const editable = mission.state === "DRAFT";
     this.nameInput.disabled = !editable;
     this.startInput.disabled = !editable;
     this.deadlineInput.disabled = !editable;
     this.droneSelect.disabled = !editable;
     this.planButton.disabled = !editable;
-    this.planButton.classList.toggle('hidden', !editable);
-    this.editorElement.querySelector('.save')?.classList.toggle('hidden', !editable);
-    const cancellable = mission.state === 'PLANNED' || mission.state === 'DISPATCHED' || mission.state === 'RUNNING';
-    this.cancelMissionButton.classList.toggle('hidden', !cancellable);
-    this.retryMissionButton.classList.toggle('hidden', mission.state !== 'FAILED');
-    this.editorElement.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((button) => { button.disabled = !editable; });
+    this.planButton.classList.toggle("hidden", !editable);
+    this.editorElement
+      .querySelector(".save")
+      ?.classList.toggle("hidden", !editable);
+    const cancellable =
+      mission.state === "PLANNED" ||
+      mission.state === "DISPATCHED" ||
+      mission.state === "RUNNING";
+    this.cancelMissionButton.classList.toggle("hidden", !cancellable);
+    this.retryMissionButton.classList.toggle(
+      "hidden",
+      mission.state !== "FAILED",
+    );
+    this.editorElement
+      .querySelectorAll<HTMLButtonElement>("[data-tool]")
+      .forEach((button) => {
+        button.disabled = !editable;
+      });
   }
 
   /** Mission validation: reviewing/approving a COMPLETED or FAILED mission's uploaded measurements.
    * A distinct panel view from `setEditor`'s CRUD form, so reviewing never looks like editing. */
   showReview(mission: Mission): void {
-    this.reviewMissionName.textContent = mission.name || 'Untitled mission';
+    this.reviewMissionName.textContent = mission.name || "Untitled mission";
     this.reviewStateBadge.textContent = formatState(mission.state);
     this.reviewStateBadge.className = `review-state-badge state-${mission.state.toLowerCase()}`;
     this.setResultLoading();
@@ -179,44 +295,46 @@ export class MissionOperationsView {
    *  while the fetch was still in flight. */
   setResultLoading(): void {
     this.renderToken += 1;
-    this.resultStatus.textContent = '';
+    this.resultStatus.textContent = "";
     this.resultList.replaceChildren();
     this.rowsById.clear();
-    this.resultLoading.classList.remove('hidden');
-    this.resultEmpty.classList.add('hidden');
+    this.resultLoading.classList.remove("hidden");
+    this.resultEmpty.classList.add("hidden");
     this.measurementCount = 0;
-    this.saveReviewButton.classList.add('hidden');
-    this.finalizeReviewButton.classList.add('hidden');
-    this.resultToolbar.classList.add('hidden');
+    this.saveReviewButton.classList.add("hidden");
+    this.finalizeReviewButton.classList.add("hidden");
+    this.resultToolbar.classList.add("hidden");
     this.updateSelectionSummary(0, 0);
   }
 
   setResult(result: MissionResult | null): void {
     const token = ++this.renderToken;
-    this.resultStatus.textContent = '';
+    this.resultStatus.textContent = "";
     this.resultList.replaceChildren();
     this.rowsById.clear();
-    this.resultLoading.classList.add('hidden');
-    this.resultEmpty.classList.toggle('hidden', result !== null);
+    this.resultLoading.classList.add("hidden");
+    this.resultEmpty.classList.toggle("hidden", result !== null);
     const hasMeasurements = Boolean(result && result.measurements.length);
     this.measurementCount = hasMeasurements ? result!.measurements.length : 0;
-    this.saveReviewButton.classList.toggle('hidden', !hasMeasurements);
-    this.finalizeReviewButton.classList.toggle('hidden', !hasMeasurements);
-    this.resultToolbar.classList.toggle('hidden', !hasMeasurements);
+    this.saveReviewButton.classList.toggle("hidden", !hasMeasurements);
+    this.finalizeReviewButton.classList.toggle("hidden", !hasMeasurements);
+    this.resultToolbar.classList.toggle("hidden", !hasMeasurements);
     if (!result) {
       this.updateSelectionSummary(0, 0);
       return;
     }
 
-    const rejected = new Set(result.activeRevision?.rejectedMeasurementIds ?? []);
+    const rejected = new Set(
+      result.activeRevision?.rejectedMeasurementIds ?? [],
+    );
     void this.renderRows(result, rejected, token);
     this.updateSelectionSummary(0, rejected.size);
     if (result.activeRevision?.finalizedAt) {
       this.resultStatus.textContent = `Finalized revision ${result.activeRevision.revision} (${result.measurements.length - rejected.size} approved).`;
     } else if (result.revisionHistory.length) {
-      this.resultStatus.textContent = 'Reviewed, not yet finalized.';
+      this.resultStatus.textContent = "Reviewed, not yet finalized.";
     } else {
-      this.resultStatus.textContent = 'Not yet reviewed.';
+      this.resultStatus.textContent = "Not yet reviewed.";
     }
   }
 
@@ -225,7 +343,11 @@ export class MissionOperationsView {
    *  the main thread — the "Back" button and everything else stays responsive while it renders.
    *  `token` guards against a stale render finishing after a newer `setResult`/`setResultLoading`
    *  call (e.g. the operator picked a different mission mid-render). */
-  private async renderRows(result: MissionResult, rejected: ReadonlySet<string>, token: number): Promise<void> {
+  private async renderRows(
+    result: MissionResult,
+    rejected: ReadonlySet<string>,
+    token: number,
+  ): Promise<void> {
     const colors = colorMeasurementsBySignalQuality(result.measurements);
     const fragment = document.createDocumentFragment();
     const batchRows: HTMLLIElement[] = [];
@@ -233,24 +355,33 @@ export class MissionOperationsView {
     for (let i = 0; i < result.measurements.length; i += 1) {
       if (token !== this.renderToken) return;
       const measurement = result.measurements[i];
-      const kpis = Object.entries(measurement.rawObservations).map(([key, value]) => `${key}: ${value}`).join(', ');
-      const row = document.createElement('li');
-      row.className = 'result-measurement';
+      const kpis = Object.entries(measurement.rawObservations)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(", ");
+      const row = document.createElement("li");
+      row.className = "result-measurement";
       row.dataset.id = measurement.id;
-      row.classList.toggle('rejected', rejected.has(measurement.id));
+      row.classList.toggle("rejected", rejected.has(measurement.id));
       row.innerHTML = `
-        <span class="swatch" style="background:${colors.get(measurement.id) ?? '#888888'}"></span>
+        <span class="swatch" style="background:${colors.get(measurement.id) ?? "#888888"}"></span>
         <span class="result-measurement-label">${new Date(measurement.capturedAt).toLocaleString()} · ${escapeHtml(measurement.source)} · ${escapeHtml(kpis)}</span>
-        <span class="result-measurement-badge">${rejected.has(measurement.id) ? 'Rejected' : 'Approved'}</span>`;
-      row.addEventListener('click', (event) => {
-        this.missionWorkflow.review.selectById(measurement.id, (event as MouseEvent).shiftKey);
+        <span class="result-measurement-badge">${rejected.has(measurement.id) ? "Rejected" : "Approved"}</span>`;
+      row.addEventListener("click", (event) => {
+        this.missionWorkflow.review.selectById(
+          measurement.id,
+          (event as MouseEvent).shiftKey,
+        );
       });
       fragment.appendChild(row);
       batchRows.push(row);
 
-      if (batchRows.length >= RESULT_ROW_BATCH_SIZE || i === result.measurements.length - 1) {
+      if (
+        batchRows.length >= RESULT_ROW_BATCH_SIZE ||
+        i === result.measurements.length - 1
+      ) {
         this.resultList.appendChild(fragment);
-        for (const batchRow of batchRows) this.rowsById.set(batchRow.dataset.id as string, batchRow);
+        for (const batchRow of batchRows)
+          this.rowsById.set(batchRow.dataset.id as string, batchRow);
         batchRows.length = 0;
         await yieldToMainThread();
       }
@@ -262,10 +393,12 @@ export class MissionOperationsView {
   setMeasurementSelection(ids: readonly string[]): void {
     const selected = new Set(ids);
     for (const [id, row] of this.rowsById) {
-      row.classList.toggle('selected', selected.has(id));
+      row.classList.toggle("selected", selected.has(id));
     }
-    const rejectedCount = Array.from(this.rowsById.values()).filter((row) => row.classList.contains('rejected')).length;
-    this.updateSelectionSummary(selected.size,   rejectedCount);
+    const rejectedCount = Array.from(this.rowsById.values()).filter((row) =>
+      row.classList.contains("rejected"),
+    ).length;
+    this.updateSelectionSummary(selected.size, rejectedCount);
   }
 
   /** Reflects an approve/reject action taken on the map or via the toolbar, without waiting
@@ -274,10 +407,10 @@ export class MissionOperationsView {
     const rejected = new Set(rejectedIds);
     let selectedCount = 0;
     for (const [id, row] of this.rowsById) {
-      row.classList.toggle('rejected', rejected.has(id));
-      const badge = row.querySelector('.result-measurement-badge');
-      if (badge) badge.textContent = rejected.has(id) ? 'Rejected' : 'Approved';
-      if (row.classList.contains('selected')) selectedCount += 1;
+      row.classList.toggle("rejected", rejected.has(id));
+      const badge = row.querySelector(".result-measurement-badge");
+      if (badge) badge.textContent = rejected.has(id) ? "Rejected" : "Approved";
+      if (row.classList.contains("selected")) selectedCount += 1;
     }
     this.updateSelectionSummary(selectedCount, rejected.size);
   }
@@ -286,24 +419,33 @@ export class MissionOperationsView {
     this.resultStatus.textContent = message;
   }
 
-  private updateSelectionSummary(selectedCount: number, rejectedCount: number): void {
-    this.selectionSummary.textContent =
-      `${selectedCount} selected · ${rejectedCount} rejected / ${this.measurementCount} total`;
+  private updateSelectionSummary(
+    selectedCount: number,
+    rejectedCount: number,
+  ): void {
+    this.selectionSummary.textContent = `${selectedCount} selected · ${rejectedCount} rejected / ${this.measurementCount} total`;
   }
 
   setActiveTool(mode: MissionEditorMode): void {
-    this.editorElement.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((button) => {
-      button.classList.toggle('active', button.dataset.tool === mode);
-      button.setAttribute('aria-pressed', button.dataset.tool === mode ? 'true' : 'false');
-    });
+    this.editorElement
+      .querySelectorAll<HTMLButtonElement>("[data-tool]")
+      .forEach((button) => {
+        button.classList.toggle("active", button.dataset.tool === mode);
+        button.setAttribute(
+          "aria-pressed",
+          button.dataset.tool === mode ? "true" : "false",
+        );
+      });
   }
 
   getFormData(): MissionFormData {
     return {
-      name: this.nameInput.value.trim() || 'Untitled mission',
+      name: this.nameInput.value.trim() || "Untitled mission",
       droneId: this.droneSelect.value as DroneId,
       earliestStart: new Date(this.startInput.value).toISOString(),
-      dispatchDeadline: this.deadlineInput.value ? new Date(this.deadlineInput.value).toISOString() : null,
+      dispatchDeadline: this.deadlineInput.value
+        ? new Date(this.deadlineInput.value).toISOString()
+        : null,
     };
   }
 }
@@ -317,7 +459,7 @@ function yieldToMainThread(): Promise<void> {
 }
 
 function formatState(state: MissionState): string {
-  return state.toLowerCase().replaceAll('_', ' ');
+  return state.toLowerCase().replaceAll("_", " ");
 }
 
 function toLocalInputValue(value: string): string {
@@ -327,5 +469,15 @@ function toLocalInputValue(value: string): string {
 }
 
 function escapeHtml(value: string): string {
-  return value.replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' })[char] ?? char);
+  return value.replace(
+    /[&<>'"]/g,
+    (char) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#039;",
+        '"': "&quot;",
+      })[char] ?? char,
+  );
 }

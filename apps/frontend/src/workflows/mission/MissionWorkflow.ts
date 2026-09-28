@@ -12,7 +12,7 @@ import VectorLayer from "ol/layer/Vector.js";
 import VectorSource from "ol/source/Vector.js";
 import { MapController } from "../../map/MapController.js";
 import { measurementStyle, missionStyle } from "../../map/styles.js";
-import OperationsPanel from "../../ui/OperationsPanel.js";
+import OperationsPanel from "../../common/OperationsPanel.js";
 import HttpMissionApi from "./HttpMissionApi.js";
 import HttpMissionResultApi from "./HttpMissionResultApi.js";
 import { MeasurementReviewController } from "./MeasurementReview.js";

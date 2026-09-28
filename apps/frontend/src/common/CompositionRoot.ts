@@ -1,5 +1,5 @@
 import { MapController } from "../map/MapController";
-import OperationsPanel from "../ui/OperationsPanel";
+import OperationsPanel from "./OperationsPanel";
 import { HeatmapWorkflow } from "../workflows/heatmap/HeatmapWorkflow";
 import { MissionWorkflow } from "../workflows/mission/MissionWorkflow";
 import type { AdminDataset } from "../workflows/navigation/AdminDatasetLoader";

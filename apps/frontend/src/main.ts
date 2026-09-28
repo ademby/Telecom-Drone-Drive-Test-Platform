@@ -1,6 +1,6 @@
 import "ol/ol.css";
 import "./style.css";
-import CompositionRoot from "./composition/CompositionRoot.js";
+import CompositionRoot from "./common/CompositionRoot.js";
 
 async function main(): Promise<void> {
   const compositionRoot = await CompositionRoot.create();

@@ -1,4 +1,4 @@
-import type { PanelView } from "../../ui/PanelView.js";
+import type { PanelView } from "../../common/PanelView.js";
 import {
   heatmapNavCardTemplate,
   heatmapSectionTemplate,
