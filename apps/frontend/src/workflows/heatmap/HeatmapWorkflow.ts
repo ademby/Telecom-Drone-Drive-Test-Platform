@@ -1,5 +1,7 @@
 import type { SignalQualityApi } from "@drone-drive/contracts/signal-quality";
 import { MapController } from "../../map/MapController.js";
+import OperationsPanel from "../../ui/OperationsPanel.js";
+import { HeatmapOperationsView } from "./HeatmapOperationsView.js";
 import HttpSignalQualityApi from "./HttpSignalQualityApi.js";
 import SignalQualityLegend from "./SignalQualityLegend.js";
 import {
@@ -20,9 +22,7 @@ export interface HeatmapLegend {
 
 export interface HeatmapWorkflowOptions {
   readonly mapController: MapController;
-  readonly legend?: HeatmapLegend;
-  /** Defaults to `DEFAULT_SIGNAL_QUALITY_PALETTE` when omitted. */
-  readonly initialPalette?: SignalQualityPalette;
+  readonly operationsPanel: OperationsPanel;
 }
 
 /**
@@ -31,27 +31,35 @@ export interface HeatmapWorkflowOptions {
  * Does not fetch tiles; does not listen to MissionWorkflow.
  */
 export class HeatmapWorkflow {
+  private readonly mapController: MapController;
+  private readonly operationsPanel: OperationsPanel;
   private readonly signalQualityApi: SignalQualityApi;
   private readonly renderer: SignalQualityRenderer;
   private readonly legend: HeatmapLegend;
+  private readonly heatmapView: HeatmapOperationsView;
   private dataLoaded = false;
   private visible = false;
   private palette: SignalQualityPalette;
 
   constructor(options: HeatmapWorkflowOptions) {
-    this.legend = options.legend ?? new SignalQualityLegend();
-    this.palette = options.initialPalette ?? DEFAULT_SIGNAL_QUALITY_PALETTE;
+    this.mapController = options.mapController;
+    this.operationsPanel = options.operationsPanel;
+
+    this.legend = new SignalQualityLegend();
 
     this.signalQualityApi = new HttpSignalQualityApi();
     this.renderer = new HttpSignalQualityRenderer(this.signalQualityApi);
-
-    this.renderer.setPalette(this.palette);
-    this.legend.setPalette(this.palette);
 
     options.mapController.map.addLayer(this.renderer.layer);
     if (this.legend instanceof SignalQualityLegend) {
       options.mapController.map.addControl(this.legend);
     }
+
+    this.palette = DEFAULT_SIGNAL_QUALITY_PALETTE;
+    this.setPalette(this.palette);
+
+    this.heatmapView = new HeatmapOperationsView(this);
+    this.operationsPanel.registerView(this.heatmapView.panelView);
   }
 
   getPalette(): SignalQualityPalette {

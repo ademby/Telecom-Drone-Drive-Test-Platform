@@ -1,38 +1,16 @@
 import type { DroneId, Mission, MissionState } from '@drone-drive/contracts/mission';
-import type { MissionEditorMode } from './MissionEditor.js';
 import type { MissionResult } from '@drone-drive/contracts/mission-result';
-import { colorMeasurementsBySignalQuality } from '../heatmap/SignalQualityPalette.js';
 import type { PanelView } from '../../ui/PanelView.js';
+import { colorMeasurementsBySignalQuality } from '../heatmap/SignalQualityPalette.js';
+import type { MissionEditorMode } from './MissionEditor.js';
 import {
-  missionsNavCardTemplate,
-  missionsSectionTemplate,
   missionEditorSectionTemplate,
   missionReviewSectionTemplate,
+  missionsNavCardTemplate,
+  missionsSectionTemplate,
 } from './MissionOperationsViewTemplate.js';
+import MissionWorkflow from './MissionWorkflow.js';
 
-export interface MissionOperationsViewCallbacks {
-  onNew(): void;
-  onSelect(id: string): void;
-  onDraw(): void;
-  onModify(): void;
-  onTranslate(): void;
-  onUndo(): void;
-  onRedo(): void;
-  onSave(data: MissionFormData): void;
-  onPlan(): void;
-  onCancel(): void;
-  onBack(): void;
-  onCancelMission(): void;
-  onRetryMission(): void;
-  onSaveReview(): void;
-  onFinalizeReview(): void;
-  onSelectMeasurement(id: string, additive: boolean): void;
-  onSelectAllMeasurements(): void;
-  onInvertMeasurementSelection(): void;
-  onClearMeasurementSelection(): void;
-  onApproveSelectedMeasurements(): void;
-  onRejectSelectedMeasurements(): void;
-}
 
 export interface MissionFormData {
   name: string;
@@ -49,7 +27,7 @@ export class MissionOperationsView {
   private readonly listElement: HTMLElement;
   private readonly editorElement: HTMLElement;
   private readonly reviewElement: HTMLElement;
-  private readonly callbacks: MissionOperationsViewCallbacks;
+  private readonly missionWorkflow: MissionWorkflow;
   private readonly list: HTMLDivElement;
   private readonly nameInput: HTMLInputElement;
   private readonly startInput: HTMLInputElement;
@@ -72,7 +50,7 @@ export class MissionOperationsView {
   private rowsById = new Map<string, HTMLLIElement>();
   private measurementCount = 0;
 
-  constructor(callbacks: MissionOperationsViewCallbacks) {
+  constructor(missionWorkflow: MissionWorkflow) {
     const navCardElement = document.createElement('div');
     navCardElement.className = 'panel-group';
     navCardElement.innerHTML = missionsNavCardTemplate;
@@ -101,7 +79,7 @@ export class MissionOperationsView {
       { id: 'review', title: 'Mission validation', sectionElement: reviewElement, autoWireBackButton: false },
     ];
 
-    this.callbacks = callbacks;
+    this.missionWorkflow = missionWorkflow;
     this.list = listElement.querySelector('.mission-list') as HTMLDivElement;
     this.nameInput = editorElement.querySelector('input[name="name"]') as HTMLInputElement;
     this.startInput = editorElement.querySelector('input[name="start"]') as HTMLInputElement;
@@ -121,30 +99,30 @@ export class MissionOperationsView {
     this.saveReviewButton = reviewElement.querySelector('.save-review') as HTMLButtonElement;
     this.finalizeReviewButton = reviewElement.querySelector('.finalize-review') as HTMLButtonElement;
 
-    listElement.querySelector('.new-mission')?.addEventListener('click', () => callbacks.onNew());
-    editorElement.querySelector('.save')?.addEventListener('click', () => callbacks.onSave(this.getFormData()));
-    editorElement.querySelector('.plan')?.addEventListener('click', () => callbacks.onPlan());
-    editorElement.querySelector('.cancel')?.addEventListener('click', () => callbacks.onCancel());
-    editorElement.querySelector('.back-button')?.addEventListener('click', () => callbacks.onBack());
-    reviewElement.querySelector('.back-button')?.addEventListener('click', () => callbacks.onBack());
+    listElement.querySelector('.new-mission')?.addEventListener('click', () => missionWorkflow.create());
+    editorElement.querySelector('.save')?.addEventListener('click', () => missionWorkflow.save(this.getFormData()));
+    editorElement.querySelector('.plan')?.addEventListener('click', () => missionWorkflow.plan());
+    editorElement.querySelector('.cancel')?.addEventListener('click', () => missionWorkflow.cancel());
+    editorElement.querySelector('.back-button')?.addEventListener('click', () => missionWorkflow.back());
+    reviewElement.querySelector('.back-button')?.addEventListener('click', () => missionWorkflow.back());
     this.cancelMissionButton.addEventListener('click', () => {
-      if (window.confirm('Cancel this mission? This cannot be undone.')) callbacks.onCancelMission();
+      if (window.confirm('Cancel this mission? This cannot be undone.')) missionWorkflow.cancelMission();
     });
-    this.retryMissionButton.addEventListener('click', () => callbacks.onRetryMission());
-    this.saveReviewButton.addEventListener('click', () => callbacks.onSaveReview());
-    this.finalizeReviewButton.addEventListener('click', () => callbacks.onFinalizeReview());
-    reviewElement.querySelector('.select-all-measurements')?.addEventListener('click', () => callbacks.onSelectAllMeasurements());
-    reviewElement.querySelector('.invert-measurement-selection')?.addEventListener('click', () => callbacks.onInvertMeasurementSelection());
-    reviewElement.querySelector('.clear-measurement-selection')?.addEventListener('click', () => callbacks.onClearMeasurementSelection());
-    reviewElement.querySelector('.approve-selected-measurements')?.addEventListener('click', () => callbacks.onApproveSelectedMeasurements());
-    reviewElement.querySelector('.reject-selected-measurements')?.addEventListener('click', () => callbacks.onRejectSelectedMeasurements());
+    this.retryMissionButton.addEventListener('click', () => missionWorkflow.retry());
+    this.saveReviewButton.addEventListener('click', () => void missionWorkflow.saveReview(missionWorkflow.review.getRejectedIds(),false));
+    this.finalizeReviewButton.addEventListener('click', () => missionWorkflow.saveReview(missionWorkflow.review.getRejectedIds(),true));
+    reviewElement.querySelector('.select-all-measurements')?.addEventListener('click', () => missionWorkflow.review.selectAll());
+    reviewElement.querySelector('.invert-measurement-selection')?.addEventListener('click', () => missionWorkflow.review.invertSelection());
+    reviewElement.querySelector('.clear-measurement-selection')?.addEventListener('click', () => missionWorkflow.review.clearSelection());
+    reviewElement.querySelector('.approve-selected-measurements')?.addEventListener('click', () => missionWorkflow.review.approveSelected());
+    reviewElement.querySelector('.reject-selected-measurements')?.addEventListener('click', () => missionWorkflow.review.rejectSelected());
     editorElement.querySelectorAll('[data-tool]').forEach((button) => button.addEventListener('click', () => {
       const tool = (button as HTMLButtonElement).dataset.tool;
-      if (tool === 'draw') callbacks.onDraw();
-      if (tool === 'modify') callbacks.onModify();
-      if (tool === 'translate') callbacks.onTranslate();
-      if (tool === 'undo') callbacks.onUndo();
-      if (tool === 'redo') callbacks.onRedo();
+      if (tool === 'draw') missionWorkflow.startDraw();
+      if (tool === 'modify') missionWorkflow.startModify();
+      if (tool === 'translate') missionWorkflow.startTranslate();
+      if (tool === 'undo') missionWorkflow.undo();
+      if (tool === 'redo') missionWorkflow.redo();
     }));
   }
 
@@ -159,7 +137,7 @@ export class MissionOperationsView {
       row.type = 'button';
       row.className = `mission-row ${mission.id === selectedId ? 'selected' : ''}`;
       row.innerHTML = `<span>${escapeHtml(mission.name || 'Untitled mission')}</span><small>${formatState(mission.state)}</small>`;
-      row.addEventListener('click', () => this.callbacks.onSelect(mission.id));
+      row.addEventListener('click', () => this.missionWorkflow.select(mission.id));
       this.list.appendChild(row);
     }
   }
@@ -265,7 +243,7 @@ export class MissionOperationsView {
         <span class="result-measurement-label">${new Date(measurement.capturedAt).toLocaleString()} · ${escapeHtml(measurement.source)} · ${escapeHtml(kpis)}</span>
         <span class="result-measurement-badge">${rejected.has(measurement.id) ? 'Rejected' : 'Approved'}</span>`;
       row.addEventListener('click', (event) => {
-        this.callbacks.onSelectMeasurement(measurement.id, (event as MouseEvent).shiftKey);
+        this.missionWorkflow.review.selectById(measurement.id, (event as MouseEvent).shiftKey);
       });
       fragment.appendChild(row);
       batchRows.push(row);

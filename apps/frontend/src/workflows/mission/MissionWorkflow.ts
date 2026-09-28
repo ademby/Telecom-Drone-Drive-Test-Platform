@@ -1,22 +1,27 @@
-import type { Mission, MissionApi, MissionId } from "@drone-drive/contracts/mission";
-import type { MissionResult, MissionResultApi } from "@drone-drive/contracts/mission-result";
+import type {
+  Mission,
+  MissionApi,
+  MissionId,
+} from "@drone-drive/contracts/mission";
+import type {
+  MissionResult,
+  MissionResultApi,
+} from "@drone-drive/contracts/mission-result";
 import LayerGroup from "ol/layer/Group.js";
 import VectorLayer from "ol/layer/Vector.js";
 import VectorSource from "ol/source/Vector.js";
 import { MapController } from "../../map/MapController.js";
 import { measurementStyle, missionStyle } from "../../map/styles.js";
+import OperationsPanel from "../../ui/OperationsPanel.js";
 import HttpMissionApi from "./HttpMissionApi.js";
 import HttpMissionResultApi from "./HttpMissionResultApi.js";
-import {
-  MeasurementReviewController,
-  type MeasurementReviewCallbacks,
-} from "./MeasurementReview.js";
-import {
-  MissionEditor,
-  type MissionEditorMode,
-} from "./MissionEditor.js";
+import { MeasurementReviewController } from "./MeasurementReview.js";
+import { MissionEditor, type MissionEditorMode } from "./MissionEditor.js";
 import { droneId, missionId } from "./missionIds.js";
-import type { MissionFormData } from "./MissionOperationsView.js";
+import {
+  MissionOperationsView,
+  type MissionFormData,
+} from "./MissionOperationsView.js";
 
 export type { MissionFormData } from "./MissionOperationsView.js";
 
@@ -32,8 +37,7 @@ export interface MissionWorkflowView {
 
 export interface MissionWorkflowOptions {
   readonly mapController: MapController;
-  readonly view: MissionWorkflowView;
-  readonly measurementCallbacks: MeasurementReviewCallbacks;
+  readonly operationsPanel: OperationsPanel;
 }
 
 /**
@@ -42,12 +46,13 @@ export interface MissionWorkflowOptions {
  */
 export class MissionWorkflow {
   private readonly mapController: MapController;
+  private readonly operationsPanel: OperationsPanel;
+  private readonly missionView: MissionOperationsView;
   private readonly missionApi: MissionApi;
   private readonly missionResultApi: MissionResultApi | undefined;
   private readonly missionEditor: MissionEditor;
   private readonly measurementReview: MeasurementReviewController;
   private readonly missionSource = new VectorSource();
-  private readonly view: MissionWorkflowView;
   private missions: Mission[] = [];
   private selectedMissionId: string | null = null;
   private editingMissionId: MissionId | null = null;
@@ -58,7 +63,7 @@ export class MissionWorkflow {
     this.missionApi = new HttpMissionApi();
     this.missionResultApi = new HttpMissionResultApi();
 
-    this.view = options.view;
+    this.operationsPanel = options.operationsPanel;
 
     const measurementSource = new VectorSource();
     const missionLayer = new VectorLayer({
@@ -87,8 +92,60 @@ export class MissionWorkflow {
       measurementSource,
       measurementLayer,
       this.mapController.getProjection(),
-      options.measurementCallbacks,
+      this,
     );
+
+    this.missionView = new MissionOperationsView(this);
+    this.missionView.panelViews.forEach((view) =>
+      this.operationsPanel.registerView(view),
+    );
+  }
+
+  // factorize
+
+  renderMissions(
+    missions: readonly Mission[],
+    selectedId: string | null,
+  ): void {
+    this.missionView.renderMissions(missions, selectedId);
+  }
+
+  setEditor(mission: Mission | null, title: string): void {
+    this.missionView.setEditor(mission, title);
+    this.operationsPanel.showView("editor");
+  }
+
+  showReview(mission: Mission): void {
+    this.missionView.showReview(mission);
+    this.operationsPanel.showView("review");
+  }
+
+  setResult(result: MissionResult | null): void {
+    this.missionView.setResult(result);
+  }
+
+  setMeasurementSelection(ids: readonly string[]): void {
+    this.missionView.setMeasurementSelection(ids);
+  }
+
+  setMeasurementRejection(rejectedIds: readonly string[]): void {
+    this.missionView.setMeasurementRejection(rejectedIds);
+  }
+
+  setResultStatusMessage(message: string): void {
+    this.missionView.setResultStatusMessage(message);
+  }
+
+  setActiveTool(mode: MissionEditorMode): void {
+    this.missionView.setActiveTool(mode);
+  }
+
+  showMissionList(): void {
+    this.operationsPanel.showView("missions");
+  }
+
+  getFormData(): MissionFormData {
+    return this.missionView.getFormData();
   }
 
   /** Exposed for OperationsPanel measurement wiring. */
@@ -124,7 +181,7 @@ export class MissionWorkflow {
       failureReason: null,
       derivedFrom: null,
     };
-    this.view.setEditor(draft, "New mission");
+    this.setEditor(draft, "New mission");
     this.renderMissionList();
   }
 
@@ -136,9 +193,9 @@ export class MissionWorkflow {
     this.missionEditor.load(mission);
     this.measurementReview.clear();
     if (mission.state === "COMPLETED" || mission.state === "FAILED") {
-      this.view.showReview(mission);
+      this.showReview(mission);
     } else {
-      this.view.setEditor(mission, "Edit mission");
+      this.setEditor(mission, "Edit mission");
     }
     this.renderMissionList();
     if (mission.activeRoute.geometry.coordinates.length > 1) {
@@ -153,10 +210,10 @@ export class MissionWorkflow {
     try {
       const result = await this.missionResultApi.get(mission.id);
       if (this.editingMissionId !== mission.id) return;
-      this.view.setResult(result);
+      this.setResult(result);
       this.measurementReview.load(result);
     } catch {
-      if (this.editingMissionId === mission.id) this.view.setResult(null);
+      if (this.editingMissionId === mission.id) this.setResult(null);
     }
   }
 
@@ -175,11 +232,15 @@ export class MissionWorkflow {
         },
         `review-${this.editingMissionId}-${Date.now()}`,
       );
-      this.view.setResult(result);
+      this.setResult(result);
       this.measurementReview.load(result);
+      if (finalize)
+        showFadingAdvisory(
+          "Result finalized. Refresh the heatmap to see updated Signal Quality.",
+        );
       return true;
     } catch (error: unknown) {
-      this.view.setResultStatusMessage(
+      this.setResultStatusMessage(
         errorMessage(error, "Failed to save review."),
       );
       return false;
@@ -207,7 +268,7 @@ export class MissionWorkflow {
   }
 
   handleEditorMode(mode: MissionEditorMode): void {
-    this.view.setActiveTool(mode);
+    this.setActiveTool(mode);
     this.setEditorCursor(mode);
   }
 
@@ -219,13 +280,16 @@ export class MissionWorkflow {
 
     try {
       if (this.editingMissionId) {
-        const updated = await this.missionApi.updateDraft(this.editingMissionId, {
-          name: data.name,
-          droneId: data.droneId,
-          earliestStart: data.earliestStart,
-          dispatchDeadline: data.dispatchDeadline,
-          geometry: this.missionEditor.getGeometry(),
-        });
+        const updated = await this.missionApi.updateDraft(
+          this.editingMissionId,
+          {
+            name: data.name,
+            droneId: data.droneId,
+            earliestStart: data.earliestStart,
+            dispatchDeadline: data.dispatchDeadline,
+            geometry: this.missionEditor.getGeometry(),
+          },
+        );
         this.missions = this.missions.map((mission) =>
           mission.id === updated.id ? updated : mission,
         );
@@ -249,7 +313,7 @@ export class MissionWorkflow {
       );
       if (saved) {
         this.missionEditor.load(saved);
-        this.view.setEditor(saved, "Edit mission");
+        this.setEditor(saved, "Edit mission");
       }
     } catch (error: unknown) {
       window.alert(errorMessage(error, "Failed to save mission."));
@@ -266,8 +330,8 @@ export class MissionWorkflow {
       this.missions = this.missions.map((mission) =>
         mission.id === planned.id ? planned : mission,
       );
-      this.view.renderMissions(this.missions, this.selectedMissionId);
-      this.view.setEditor(planned, "Planned mission");
+      this.renderMissions(this.missions, this.selectedMissionId);
+      this.setEditor(planned, "Planned mission");
     } catch (error: unknown) {
       window.alert(errorMessage(error, "Failed to plan mission."));
     }
@@ -283,7 +347,7 @@ export class MissionWorkflow {
       this.missions = this.missions.map((mission) =>
         mission.id === cancelled.id ? cancelled : mission,
       );
-      this.view.setEditor(cancelled, "Cancelled mission");
+      this.setEditor(cancelled, "Cancelled mission");
       this.renderMissionList();
     } catch (error: unknown) {
       window.alert(errorMessage(error, "Failed to cancel mission."));
@@ -301,7 +365,7 @@ export class MissionWorkflow {
       this.editingMissionId = derived.id;
       this.selectedMissionId = derived.id;
       this.missionEditor.load(derived);
-      this.view.setEditor(derived, "New mission (retry)");
+      this.setEditor(derived, "New mission (retry)");
       this.renderMissionList();
     } catch (error: unknown) {
       window.alert(errorMessage(error, "Failed to create a retry mission."));
@@ -316,14 +380,14 @@ export class MissionWorkflow {
       );
       if (mission) {
         this.missionEditor.load(mission);
-        this.view.setEditor(mission, "Edit mission");
+        this.setEditor(mission, "Edit mission");
         return;
       }
     }
     this.clearMission();
     this.selectedMissionId = null;
     this.editingMissionId = null;
-    this.view.showMissionList();
+    this.operationsPanel.showView("missions");
     this.renderMissionList();
   }
 
@@ -333,7 +397,7 @@ export class MissionWorkflow {
     this.measurementReview.clear();
     this.selectedMissionId = null;
     this.editingMissionId = null;
-    this.view.showMissionList();
+    this.operationsPanel.showView("missions");
     this.renderMissionList();
   }
 
@@ -354,8 +418,21 @@ export class MissionWorkflow {
   }
 
   private renderMissionList(): void {
-    this.view.renderMissions(this.missions, this.selectedMissionId);
+    this.renderMissions(this.missions, this.selectedMissionId);
   }
+}
+
+/** Fading advisory on the map surface (mission UI after finalize). */
+function showFadingAdvisory(message: string): void {
+  const el = document.createElement("div");
+  el.className = "map-advisory";
+  el.textContent = message;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("map-advisory-visible"));
+  window.setTimeout(() => {
+    el.classList.remove("map-advisory-visible");
+    window.setTimeout(() => el.remove(), 450);
+  }, 4500);
 }
 
 function errorMessage(error: unknown, fallback: string): string {

@@ -1,23 +1,24 @@
-import Feature from "ol/Feature.js";
-import Point from "ol/geom/Point.js";
-import type OlMap from "ol/Map.js";
-import type VectorLayer from "ol/layer/Vector.js";
-import type VectorSource from "ol/source/Vector.js";
-import Select from "ol/interaction/Select.js";
-import DragBox from "ol/interaction/DragBox.js";
+import type { MissionResult } from "@drone-drive/contracts/mission-result";
 import {
   click,
   platformModifierKeyOnly,
   shiftKeyOnly,
 } from "ol/events/condition.js";
+import Feature from "ol/Feature.js";
+import Point from "ol/geom/Point.js";
+import DragBox from "ol/interaction/DragBox.js";
+import Select from "ol/interaction/Select.js";
+import type VectorLayer from "ol/layer/Vector.js";
+import type OlMap from "ol/Map.js";
 import { transform } from "ol/proj.js";
 import type Projection from "ol/proj/Projection.js";
-import type { MissionResult } from "@drone-drive/contracts/mission-result";
+import type VectorSource from "ol/source/Vector.js";
 import {
   colorMeasurementsBySignalQuality,
   DEFAULT_SIGNAL_QUALITY_PALETTE,
   type SignalQualityPalette,
 } from "../heatmap/SignalQualityPalette.js";
+import MissionWorkflow from "./MissionWorkflow.js";
 
 /** Features built per animation frame while loading a review result. */
 const MEASUREMENT_BATCH_SIZE = 500;
@@ -40,10 +41,10 @@ export interface MeasurementReviewCallbacks {
  * Ctrl(Cmd)+drag to box-select many, and approve/reject acting on whatever is selected.
  */
 export class MeasurementReviewController {
+  private readonly missionWorkflow: MissionWorkflow;
   private readonly source: VectorSource;
   private readonly projection: Projection;
   private readonly palette: SignalQualityPalette;
-  private readonly callbacks: MeasurementReviewCallbacks;
   private readonly selectInteraction: Select;
   private readonly dragBox: DragBox;
   private featuresById = new Map<string, Feature<Point>>();
@@ -55,13 +56,13 @@ export class MeasurementReviewController {
     source: VectorSource,
     layer: VectorLayer<VectorSource>,
     projection: Projection,
-    callbacks: MeasurementReviewCallbacks,
+    missionWorkflow: MissionWorkflow,
     palette: SignalQualityPalette = DEFAULT_SIGNAL_QUALITY_PALETTE,
   ) {
     this.source = source;
     this.projection = projection;
     this.palette = palette;
-    this.callbacks = callbacks;
+    this.missionWorkflow = missionWorkflow;
 
     // Plain click selects just that point; shift-click toggles it into/out of the existing
     // selection. Scoped to the measurement layer so it can't steal clicks meant for the
@@ -183,7 +184,7 @@ export class MeasurementReviewController {
       feature.set("rejected", false);
       feature.changed();
     }
-    this.callbacks.onRejectedChange(this.getRejectedIds());
+    this.missionWorkflow.setMeasurementRejection(this.getRejectedIds());
   }
 
   rejectSelected(): void {
@@ -192,7 +193,7 @@ export class MeasurementReviewController {
       feature.set("rejected", true);
       feature.changed();
     }
-    this.callbacks.onRejectedChange(this.getRejectedIds());
+    this.missionWorkflow.setMeasurementRejection(this.getRejectedIds());
   }
 
   getRejectedIds(): readonly string[] {
@@ -215,6 +216,6 @@ export class MeasurementReviewController {
         feature.changed();
       }
     }
-    this.callbacks.onSelectionChange(Array.from(selectedIds));
+    this.missionWorkflow.setMeasurementSelection(Array.from(selectedIds));
   }
 }
