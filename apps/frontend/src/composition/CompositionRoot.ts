@@ -7,16 +7,16 @@ import AdminDatasetLoader from "../workflows/navigation/AdminDatasetLoader";
 import HttpMissionApi from "../workflows/mission/HttpMissionApi";
 import HttpMissionResultApi from "../workflows/mission/HttpMissionResultApi";
 import HttpSignalQualityApi from "../workflows/heatmap/HttpSignalQualityApi";
-import type { SignalQualityPalette } from "../workflows/heatmap/SignalQualityPalette";
 import { HttpSignalQualityRenderer } from "../workflows/heatmap/SignalQualityRenderer";
 import { MapController } from "../map/MapController";
 import type { NavigationState } from "../workflows/navigation/NavigationState";
 import Breadcrumbs from "../workflows/navigation/Breadcrumbs";
 import LocationSearch from "../workflows/navigation/LocationSearch";
-import type { MissionFormData } from "../workflows/mission/MissionOperationsView";
 import OperationsPanel from "../ui/OperationsPanel";
 import { HeatmapWorkflow } from "../workflows/heatmap/HeatmapWorkflow";
+import { createHeatmapOperationsCallbacks } from "../workflows/heatmap/createHeatmapOperationsCallbacks";
 import { MissionWorkflow } from "../workflows/mission/MissionWorkflow";
+import { createMissionOperationsCallbacks } from "../workflows/mission/createMissionOperationsCallbacks";
 import { NavigationWorkflow } from "../workflows/navigation/NavigationWorkflow";
 
 export interface CompositionRootOptions {
@@ -108,68 +108,20 @@ export class CompositionRoot {
     // Deferred: missionWorkflow.review is needed for panel callbacks; panel is the view.
     let missionWorkflowRef: MissionWorkflow | null = null;
 
-    const missionCallbacks = {
-      onNew: () => this.missionWorkflow.create(),
-      onSelect: (id: string) => this.missionWorkflow.select(id),
-      onDraw: () => this.missionWorkflow.startDraw(),
-      onModify: () => this.missionWorkflow.startModify(),
-      onTranslate: () => this.missionWorkflow.startTranslate(),
-      onUndo: () => this.missionWorkflow.undo(),
-      onRedo: () => this.missionWorkflow.redo(),
-      onSave: (data: MissionFormData) => void this.missionWorkflow.save(data),
-      onPlan: () => void this.missionWorkflow.plan(),
-      onCancel: () => this.missionWorkflow.cancel(),
-      onBack: () => this.missionWorkflow.back(),
-      onCancelMission: () => void this.missionWorkflow.cancelMission(),
-      onRetryMission: () => void this.missionWorkflow.retry(),
-      onSaveReview: () => {
-        const review = missionWorkflowRef?.review;
-        if (!review) return;
-        void this.missionWorkflow.saveReview(review.getRejectedIds(), false);
-      },
-      onFinalizeReview: () => {
-        const review = missionWorkflowRef?.review;
-        if (!review) return;
-        void (async () => {
-          const saved = await this.missionWorkflow.saveReview(
-            review.getRejectedIds(),
-            true,
-          );
-          if (saved) {
-            showFadingAdvisory(
-              "Result finalized. Refresh the heatmap to see updated Signal Quality.",
-            );
-          }
-        })();
-      },
-      onSelectMeasurement: (id: string, additive: boolean) =>
-        missionWorkflowRef?.review.selectById(id, additive),
-      onSelectAllMeasurements: () => missionWorkflowRef?.review.selectAll(),
-      onInvertMeasurementSelection: () =>
-        missionWorkflowRef?.review.invertSelection(),
-      onClearMeasurementSelection: () =>
-        missionWorkflowRef?.review.clearSelection(),
-      onApproveSelectedMeasurements: () =>
-        missionWorkflowRef?.review.approveSelected(),
-      onRejectSelectedMeasurements: () =>
-        missionWorkflowRef?.review.rejectSelected(),
-    };
-
-    const heatmapCallbacks = {
-      onToggle: () =>
-        void this.heatmapWorkflow.toggle().then((visible) =>
-          this.operationsPanel.setSignalQualityToggleState(visible),
-        ),
-      onRefresh: () => void this.heatmapWorkflow.refresh(),
-      onPaletteChange: (palette: SignalQualityPalette) => {
-        try {
-          this.heatmapWorkflow.setPalette(palette);
-        } catch {
-          /* ignore transient invalid state */
+    const missionCallbacks = createMissionOperationsCallbacks({
+      getMissionWorkflow: () => {
+        if (!missionWorkflowRef) {
+          throw new Error("Mission workflow is not ready.");
         }
+        return missionWorkflowRef;
       },
-      onPaletteReset: () => this.heatmapWorkflow.resetPalette(),
-    };
+      showFadingAdvisory,
+    });
+
+    const heatmapCallbacks = createHeatmapOperationsCallbacks({
+      heatmapWorkflow: this.heatmapWorkflow,
+      getOperationsPanel: () => this.operationsPanel,
+    });
 
     this.operationsPanel = new OperationsPanel(
       missionCallbacks,
