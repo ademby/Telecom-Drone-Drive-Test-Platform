@@ -6,6 +6,16 @@ import type {
 } from "@drone-drive/contracts/signal-quality";
 import { signalQualityTilePath } from "@drone-drive/contracts/signal-quality";
 
+function requireApiBaseUrl(): string {
+  const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  if (!base) {
+    throw new Error(
+      "VITE_API_BASE_URL is required. Or implement 'same BaseUrl' logic.",
+    );
+  }
+  return base.replace(/\/$/, "");
+}
+
 /**
  * Sole HTTP owner for Signal Quality range + tiles (R-05/R-06).
  * Hides base URL, path helper, version query, Float32 decode, and error mapping.
@@ -15,8 +25,8 @@ export class HttpSignalQualityApi implements SignalQualityApi {
   private readonly baseUrl: string;
   private tileVersion = "unversioned";
 
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl.replace(/\/$/, "");
+  constructor() {
+    this.baseUrl = requireApiBaseUrl();
   }
 
   async getRange(): Promise<SignalQualityRange> {
@@ -36,9 +46,7 @@ export class HttpSignalQualityApi implements SignalQualityApi {
     const url = `${this.baseUrl}${path}?v=${encodeURIComponent(this.tileVersion)}`;
     const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(
-        `Failed to load Signal Quality tile: ${response.status}`,
-      );
+      throw new Error(`Failed to load Signal Quality tile: ${response.status}`);
     }
     const bytes = await response.arrayBuffer();
     return new Float32Array(bytes);

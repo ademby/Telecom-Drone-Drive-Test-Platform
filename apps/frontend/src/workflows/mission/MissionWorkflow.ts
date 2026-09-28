@@ -1,22 +1,24 @@
-import type { MissionApi, Mission, MissionId } from "@drone-drive/contracts/mission";
+import type { Mission, MissionApi, MissionId } from "@drone-drive/contracts/mission";
 import type { MissionResult, MissionResultApi } from "@drone-drive/contracts/mission-result";
 import LayerGroup from "ol/layer/Group.js";
 import VectorLayer from "ol/layer/Vector.js";
 import VectorSource from "ol/source/Vector.js";
-import { droneId, missionId } from "./missionIds.js";
 import { MapController } from "../../map/MapController.js";
 import { measurementStyle, missionStyle } from "../../map/styles.js";
-import {
-  MissionEditor,
-  type MissionEditorMode,
-} from "./MissionEditor.js";
+import HttpMissionApi from "./HttpMissionApi.js";
+import HttpMissionResultApi from "./HttpMissionResultApi.js";
 import {
   MeasurementReviewController,
   type MeasurementReviewCallbacks,
 } from "./MeasurementReview.js";
+import {
+  MissionEditor,
+  type MissionEditorMode,
+} from "./MissionEditor.js";
+import { droneId, missionId } from "./missionIds.js";
+import type { MissionFormData } from "./MissionOperationsView.js";
 
 export type { MissionFormData } from "./MissionOperationsView.js";
-import type { MissionFormData } from "./MissionOperationsView.js";
 
 export interface MissionWorkflowView {
   renderMissions(missions: readonly Mission[], selectedId: string | null): void;
@@ -30,10 +32,7 @@ export interface MissionWorkflowView {
 
 export interface MissionWorkflowOptions {
   readonly mapController: MapController;
-  readonly missionApi: MissionApi;
-  readonly missionResultApi?: MissionResultApi;
   readonly view: MissionWorkflowView;
-  readonly setAdminSelectionEnabled: (enabled: boolean) => void;
   readonly measurementCallbacks: MeasurementReviewCallbacks;
 }
 
@@ -49,17 +48,17 @@ export class MissionWorkflow {
   private readonly measurementReview: MeasurementReviewController;
   private readonly missionSource = new VectorSource();
   private readonly view: MissionWorkflowView;
-  private readonly setAdminSelectionEnabled: (enabled: boolean) => void;
   private missions: Mission[] = [];
   private selectedMissionId: string | null = null;
   private editingMissionId: MissionId | null = null;
 
   constructor(options: MissionWorkflowOptions) {
     this.mapController = options.mapController;
-    this.missionApi = options.missionApi;
-    this.missionResultApi = options.missionResultApi;
+
+    this.missionApi = new HttpMissionApi();
+    this.missionResultApi = new HttpMissionResultApi();
+
     this.view = options.view;
-    this.setAdminSelectionEnabled = options.setAdminSelectionEnabled;
 
     const measurementSource = new VectorSource();
     const missionLayer = new VectorLayer({
@@ -82,6 +81,7 @@ export class MissionWorkflow {
       this.mapController.getProjection(),
       (mode) => this.handleEditorMode(mode),
     );
+
     this.measurementReview = new MeasurementReviewController(
       this.mapController.map,
       measurementSource,
@@ -102,7 +102,6 @@ export class MissionWorkflow {
   }
 
   create(): void {
-    this.setAdminSelectionEnabled(false);
     const now = new Date(Date.now() + 15 * 60_000).toISOString();
     this.editingMissionId = null;
     this.selectedMissionId = null;
@@ -132,7 +131,6 @@ export class MissionWorkflow {
   select(id: string): void {
     const mission = this.missions.find((item) => item.id === id);
     if (!mission) return;
-    this.setAdminSelectionEnabled(false);
     this.editingMissionId = mission.id;
     this.selectedMissionId = mission.id;
     this.missionEditor.load(mission);
@@ -189,17 +187,14 @@ export class MissionWorkflow {
   }
 
   startDraw(): void {
-    this.setAdminSelectionEnabled(false);
     this.missionEditor.startDraw();
   }
 
   startModify(): void {
-    this.setAdminSelectionEnabled(false);
     this.missionEditor.startModify();
   }
 
   startTranslate(): void {
-    this.setAdminSelectionEnabled(false);
     this.missionEditor.startTranslate();
   }
 
@@ -248,7 +243,6 @@ export class MissionWorkflow {
         this.editingMissionId = created.id;
       }
       this.missionEditor.stop();
-      this.setAdminSelectionEnabled(true);
       this.renderMissionList();
       const saved = this.missions.find(
         (mission) => mission.id === this.selectedMissionId,
@@ -316,7 +310,6 @@ export class MissionWorkflow {
 
   cancel(): void {
     this.missionEditor.stop();
-    this.setAdminSelectionEnabled(true);
     if (this.editingMissionId) {
       const mission = this.missions.find(
         (item) => item.id === this.editingMissionId,
@@ -336,7 +329,6 @@ export class MissionWorkflow {
 
   back(): void {
     this.missionEditor.stop();
-    this.setAdminSelectionEnabled(true);
     this.clearMission();
     this.measurementReview.clear();
     this.selectedMissionId = null;

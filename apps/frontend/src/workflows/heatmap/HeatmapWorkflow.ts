@@ -1,12 +1,16 @@
 import type { SignalQualityApi } from "@drone-drive/contracts/signal-quality";
-import type { SignalQualityRenderer } from "./SignalQualityRenderer.js";
+import { MapController } from "../../map/MapController.js";
+import HttpSignalQualityApi from "./HttpSignalQualityApi.js";
+import SignalQualityLegend from "./SignalQualityLegend.js";
 import {
   DEFAULT_SIGNAL_QUALITY_PALETTE,
   isValidPalette,
   type SignalQualityPalette,
 } from "./SignalQualityPalette.js";
-import { MapController } from "../../map/MapController.js";
-import SignalQualityLegend from "./SignalQualityLegend.js";
+import {
+  HttpSignalQualityRenderer,
+  type SignalQualityRenderer,
+} from "./SignalQualityRenderer.js";
 
 export interface HeatmapLegend {
   readonly element: HTMLElement;
@@ -16,8 +20,6 @@ export interface HeatmapLegend {
 
 export interface HeatmapWorkflowOptions {
   readonly mapController: MapController;
-  readonly signalQualityApi: SignalQualityApi;
-  readonly renderer: SignalQualityRenderer;
   readonly legend?: HeatmapLegend;
   /** Defaults to `DEFAULT_SIGNAL_QUALITY_PALETTE` when omitted. */
   readonly initialPalette?: SignalQualityPalette;
@@ -37,10 +39,12 @@ export class HeatmapWorkflow {
   private palette: SignalQualityPalette;
 
   constructor(options: HeatmapWorkflowOptions) {
-    this.signalQualityApi = options.signalQualityApi;
-    this.renderer = options.renderer;
     this.legend = options.legend ?? new SignalQualityLegend();
     this.palette = options.initialPalette ?? DEFAULT_SIGNAL_QUALITY_PALETTE;
+
+    this.signalQualityApi = new HttpSignalQualityApi();
+    this.renderer = new HttpSignalQualityRenderer(this.signalQualityApi);
+
     this.renderer.setPalette(this.palette);
     this.legend.setPalette(this.palette);
 

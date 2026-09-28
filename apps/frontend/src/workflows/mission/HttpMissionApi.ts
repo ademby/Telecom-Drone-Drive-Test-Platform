@@ -7,11 +7,21 @@ import type {
   UpdateDraftMissionCommand,
 } from "@drone-drive/contracts/mission";
 
+function requireApiBaseUrl(): string {
+  const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  if (!base) {
+    throw new Error(
+      "VITE_API_BASE_URL is required. Or implement 'same BaseUrl' logic.",
+    );
+  }
+  return base.replace(/\/$/, "");
+}
+
 export class HttpMissionApi implements MissionApi {
   private readonly baseUrl: string;
 
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl.replace(/\/$/, "");
+  constructor() {
+    this.baseUrl = requireApiBaseUrl();
   }
 
   list(query: MissionQuery = {}): Promise<readonly Mission[]> {
@@ -81,7 +91,9 @@ export class HttpMissionApi implements MissionApi {
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
-      throw new Error(payload?.error ?? `Mission API request failed: ${response.status}`);
+      throw new Error(
+        payload?.error ?? `Mission API request failed: ${response.status}`,
+      );
     }
     return payload as T;
   }

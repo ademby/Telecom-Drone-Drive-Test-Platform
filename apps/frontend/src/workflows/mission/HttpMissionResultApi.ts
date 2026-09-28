@@ -1,10 +1,23 @@
+import type { MissionId } from '@drone-drive/contracts/mission';
 import type {
   Measurement, MissionResult, MissionResultApi, ReviewResultRevisionCommand, UploadMissionResultCommand,
 } from '@drone-drive/contracts/mission-result';
-import type { MissionId } from '@drone-drive/contracts/mission';
+
+function requireApiBaseUrl(): string {
+  const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  if (!base) {
+    throw new Error(
+      "VITE_API_BASE_URL is required. Or implement 'same BaseUrl' logic.",
+    );
+  }
+  return base.replace(/\/$/, "");
+}
 
 export class HttpMissionResultApi implements MissionResultApi {
-  constructor(private readonly baseUrl: string) {}
+  private readonly baseUrl: string
+  constructor() {
+    this.baseUrl = requireApiBaseUrl();
+  }
 
   async get(missionId: MissionId): Promise<MissionResult> {
     return this.request('GET', `/missions/${encodeURIComponent(missionId)}/result`);

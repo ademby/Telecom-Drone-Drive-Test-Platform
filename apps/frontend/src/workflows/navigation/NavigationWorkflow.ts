@@ -1,13 +1,11 @@
+import Control from "ol/control/Control.js";
 import { click } from "ol/events/condition.js";
 import type Feature from "ol/Feature.js";
-import Select from "ol/interaction/Select.js";
 import type { SelectEvent } from "ol/interaction/Select.js";
+import Select from "ol/interaction/Select.js";
 import LayerGroup from "ol/layer/Group.js";
 import VectorLayer from "ol/layer/Vector.js";
 import VectorSource from "ol/source/Vector.js";
-import type { AdminDataset } from "./AdminDatasetLoader.js";
-import { AdminNode } from "./AdminNode.js";
-import type { NavigationState } from "./NavigationState.js";
 import { MapController } from "../../map/MapController.js";
 import {
   activeStyle,
@@ -15,6 +13,12 @@ import {
   hoverStyle,
   selectedStyle,
 } from "../../map/styles.js";
+import type { AdminDataset } from "./AdminDatasetLoader.js";
+import { AdminNode } from "./AdminNode.js";
+import Breadcrumbs from "./Breadcrumbs.js";
+import LocationDisplay from "./LocationDisplay.js";
+import LocationSearch from "./LocationSearch.js";
+import type { NavigationState } from "./NavigationState.js";
 import { shouldUseDefaultTransition } from "./navigationTransition.js";
 
 export interface NavigationSearchOption {
@@ -38,15 +42,9 @@ export interface NavigationDataset {
   getNodeByFeature(feature: Feature): AdminNode | undefined;
 }
 
-export interface NavigationLocationDisplay {
-  setPath(path: AdminNode[]): void;
-  clear(): void;
-}
-
 export interface NavigationWorkflowOptions {
   readonly mapController: MapController;
   readonly adminDataset: NavigationDataset;
-  readonly locationDisplay: NavigationLocationDisplay;
 }
 
 /**
@@ -63,19 +61,26 @@ export class NavigationWorkflow {
 
   private readonly mapController: MapController;
   private readonly adminDataset: NavigationDataset;
-  private readonly locationDisplay: NavigationLocationDisplay;
+
+  private readonly locationDisplay: LocationDisplay;
+
   private readonly contextSource = new VectorSource();
   private readonly activeSource = new VectorSource();
   private readonly selectionSource = new VectorSource();
   private readonly hoverSource = new VectorSource();
+
   private readonly activeLayer: VectorLayer<VectorSource>;
+
   private readonly adminSelect: Select;
+
   private previewState: NavigationSnapshot | null = null;
 
   constructor(options: NavigationWorkflowOptions) {
     this.mapController = options.mapController;
     this.adminDataset = options.adminDataset;
-    this.locationDisplay = options.locationDisplay;
+
+    this.locationDisplay = new Breadcrumbs((id) => this.selectNodeById(id));
+    this.mapController.map.addControl(this.locationDisplay);
 
     const contextLayer = new VectorLayer({
       source: this.contextSource,
@@ -97,7 +102,6 @@ export class NavigationWorkflow {
       style: hoverStyle,
       zIndex: 40,
     });
-
     this.mapController.map.addLayer(
       new LayerGroup({
         layers: [contextLayer, this.activeLayer, selectionLayer, hoverLayer],
@@ -115,6 +119,17 @@ export class NavigationWorkflow {
       if (feature) this.selectNodeByFeature(feature);
     });
     this.mapController.map.addInteraction(this.adminSelect);
+
+    const locationSearch = new LocationSearch({
+      options: this.getSearchOptions(),
+      onPreviewStart: (node) => this.previewNode(node),
+      onPreviewEnd: () => this.restorePreview(),
+      onPreviewCommit: (node) => this.commitPreview(node),
+      onSelect: (node) => this.selectNode(node),
+    });
+    this.mapController.map.addControl(
+      new Control({ element: locationSearch.element }),
+    );
   }
 
   getSearchOptions(): NavigationSearchOption[] {
@@ -205,9 +220,7 @@ export class NavigationWorkflow {
       snapshot.context.map((item) => item.feature),
     );
     this.activeSource.clear();
-    this.activeSource.addFeatures(
-      snapshot.active.map((item) => item.feature),
-    );
+    this.activeSource.addFeatures(snapshot.active.map((item) => item.feature));
     this.selectionSource.clear();
     if (snapshot.selected) {
       this.selectionSource.addFeature(snapshot.selected.feature);
