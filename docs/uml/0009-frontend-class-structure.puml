@@ -1,0 +1,195 @@
+@startuml
+title Frontend class structure (key types and their collaborators)
+hide empty members
+skinparam classAttributeIconSize 0
+
+package common {
+  class CompositionRoot {
+    +mapController
+    +adminDataset
+    +operationsPanel
+    +navigationWorkflow
+    +missionWorkflow
+    +heatmapWorkflow
+    {static} +create(options) : Promise<CompositionRoot>
+  }
+  class OperationsPanel {
+    +element
+    +registerView(view)
+    +showView(id)
+    +showHome()
+    +showPanel()
+    +hidePanel()
+  }
+  interface PanelView {
+    +id
+    +title
+    +sectionElement
+    +navCardElement?
+    +autoWireBackButton?
+  }
+}
+
+package map {
+  class MapController {
+    +map : ol/Map
+    +basemapManager
+    +fitViewToFeature(f)
+    +fitViewToFeatureHop(f)
+    +hopToView(center, zoom)
+    +fitViewToExtent(e)
+    +getProjection()
+    +getViewState()
+  }
+  class BasemapManager {
+    +next()
+    +getLayers()
+  }
+  class BasemapControl
+}
+
+package "workflows/navigation" {
+  class NavigationWorkflow {
+    +navigation : NavigationState
+    +showInitialRoot()
+    +selectNode(node)
+    +selectNodeById(id)
+    +previewNode(node)
+    +restorePreview()
+    +commitPreview(node)
+    +getSearchOptions()
+  }
+  class AdminTree {
+    +root
+    +pathTo(node)
+    +allNodes()
+  }
+  class AdminNode
+  class AdminDatasetLoader {
+    {static} +loadDataset(opts)
+  }
+  class LocationSearch
+  class Breadcrumbs
+  class LocationDisplay
+}
+
+package "workflows/mission" {
+  class MissionWorkflow {
+    +load()
+    +create()
+    +select(id)
+    +save(form)
+    +plan()
+    +cancelMission()
+    +retry()
+    +cancel()
+    +back()
+    +saveReview(rejectedIds, finalize)
+    +startDraw() / startModify() / startTranslate()
+    +undo() / redo()
+  }
+  class MissionOperationsView {
+    +panelViews : PanelView[]
+    +renderMissions()
+    +setEditor()
+    +showReview()
+    +setResult()
+  }
+  class MissionEditor {
+    +load(mission)
+    +startNew() / startDraw()
+    +startModify() / startTranslate()
+    +undo() / redo()
+    +getGeometry()
+  }
+  class MeasurementReviewController {
+    +load(result)
+    +selectById / selectAll / invert
+    +approveSelected()
+    +rejectSelected()
+    +getRejectedIds()
+  }
+  class HttpMissionApi
+  class HttpMissionResultApi
+}
+
+package "workflows/heatmap" {
+  class HeatmapWorkflow {
+    +load()
+    +refresh()
+    +toggle()
+    +setPalette(p)
+    +resetPalette()
+  }
+  class HeatmapOperationsView {
+    +panelView : PanelView
+  }
+  interface SignalQualityRenderer {
+    +layer
+    +setRange(min, max, version)
+    +setPalette(p)
+    +setVisible(v)
+    +dispose()
+  }
+  class HttpSignalQualityRenderer
+  class SignalQualityTileSource <<Canvas + worker>>
+  class SignalQualityTileSource_ForWebGL <<WebGL>>
+  class HttpSignalQualityApi
+  class SignalQualityLegend
+}
+
+package "@drone-drive/contracts" {
+  interface MissionApi
+  interface MissionResultApi
+  interface SignalQualityApi
+}
+
+CompositionRoot *-- OperationsPanel
+CompositionRoot *-- MapController
+CompositionRoot *-- NavigationWorkflow
+CompositionRoot *-- MissionWorkflow
+CompositionRoot *-- HeatmapWorkflow
+OperationsPanel o-- PanelView : registered views
+MapController *-- BasemapManager
+MapController ..> BasemapControl
+
+NavigationWorkflow --> MapController
+NavigationWorkflow --> AdminTree
+AdminTree o-- AdminNode
+AdminDatasetLoader ..> AdminTree : builds
+NavigationWorkflow *-- LocationSearch
+NavigationWorkflow *-- Breadcrumbs
+Breadcrumbs --|> LocationDisplay
+
+MissionWorkflow --> MapController
+MissionWorkflow --> OperationsPanel
+MissionWorkflow *-- MissionOperationsView
+MissionWorkflow *-- MissionEditor
+MissionWorkflow *-- MeasurementReviewController
+MissionWorkflow *-- HttpMissionApi
+MissionWorkflow *-- HttpMissionResultApi
+MissionOperationsView --> MissionWorkflow : commands
+MeasurementReviewController --> MissionWorkflow : callbacks
+HttpMissionApi ..|> MissionApi
+HttpMissionResultApi ..|> MissionResultApi
+MissionOperationsView ..> PanelView
+
+HeatmapWorkflow --> MapController
+HeatmapWorkflow --> OperationsPanel
+HeatmapWorkflow *-- HeatmapOperationsView
+HeatmapWorkflow *-- HttpSignalQualityApi
+HeatmapWorkflow *-- HttpSignalQualityRenderer
+HeatmapWorkflow *-- SignalQualityLegend
+HttpSignalQualityApi ..|> SignalQualityApi
+HttpSignalQualityRenderer ..|> SignalQualityRenderer
+HttpSignalQualityRenderer --> SignalQualityTileSource : uiConfig.kpiRenderer = canvas
+HttpSignalQualityRenderer --> SignalQualityTileSource_ForWebGL : uiConfig.kpiRenderer = webgl
+SignalQualityTileSource --> SignalQualityApi
+SignalQualityTileSource_ForWebGL --> SignalQualityApi
+HeatmapOperationsView ..> PanelView
+
+note bottom of HttpSignalQualityRenderer
+  Selection is a static build-time flag in
+  ui.config.ts (ADR-0006), not a runtime toggle.
+end note
+@enduml

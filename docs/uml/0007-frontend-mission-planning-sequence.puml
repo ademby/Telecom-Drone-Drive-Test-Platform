@@ -1,42 +1,64 @@
 @startuml
+title Frontend mission planning (create, edit, plan)
 autonumber
 
 actor Operator
-participant "Operations panel" as Workspace
-participant "Mission workflow" as Planning
-participant "MapController / mission layers" as Map
+participant "MissionOperationsView" as View
+participant "MissionWorkflow" as WF
+participant "MissionEditor" as Editor
+participant "ol/Map + route layer" as Map
+participant "OperationsPanel" as Panel
 participant "HttpMissionApi" as Api
-participant "Backend contract" as Backend
+participant "Backend" as Backend
 
-Operator -> Workspace: Start new mission
-Workspace -> Planning: Enter planning mode
-Planning -> Map: Enable route drawing (own layers)
-Operator -> Map: Draw route
-Map --> Planning: Candidate geometry
+== New mission ==
+Operator -> View : click "New mission"
+View -> WF : create()
+WF -> Editor : startNew()  (enable Draw + Snap, mode = draw)
+WF -> WF : build local draft Mission (id "draft", empty route)
+WF -> View : setEditor(draft, "New mission")
+WF -> Panel : showView("editor")
+Operator -> Map : draw LineString
+Map --> Editor : drawend (interactions disabled)
 
-Planning -> Planning: Validate route and required fields
-Planning -> Map: Show route revision preview
-Operator -> Planning: Save draft
-Planning -> Api: create(command)
-Api -> Backend: POST mission
-Backend --> Api: Draft mission + route revision
-Api --> Planning: Mission
-Planning -> Map: Display saved route
-Planning --> Workspace: Return to inspection
+Operator -> View : click Save
+View -> WF : save(getFormData())
+WF -> Editor : hasValidGeometry()  (>= 2 points)
+alt fewer than 2 points
+  WF -> Operator : window.alert(...)
+else valid
+  WF -> Api : create({name, droneId, earliestStart,\ndispatchDeadline, geometry})
+  Api -> Backend : POST /missions
+  Backend --> Api : Mission (DRAFT, route revision 1)
+  Api --> WF : Mission
+  WF -> Editor : stop(), load(saved)
+  WF -> View : setEditor(saved, "Edit mission")
+end
 
-Operator -> Workspace: Edit draft mission
-Workspace -> Planning: Load mission
-Planning -> Map: Enable modify/translate
-Operator -> Map: Change route
-Map --> Planning: New geometry
-Planning -> Api: updateDraft(command)
-Api -> Backend: PATCH draft mission
-Backend --> Api: New immutable route revision
-Api --> Planning: Updated mission
+== Edit a draft ==
+Operator -> View : pick tool (modify / translate / undo / redo)
+View -> WF : startModify() ...
+WF -> Editor : startModify()  (Modify + Snap, undo stack captured)
+Operator -> Map : change route
+Operator -> View : Save
+View -> WF : save(form)
+WF -> Api : updateDraft(id, {..., geometry})
+Api -> Backend : PATCH /missions/:id
+Backend --> Api : Mission (new immutable route revision)
+WF -> View : setEditor(updated, "Edit mission")
 
-Operator -> Workspace: Plan mission
-Workspace -> Api: plan(id, idempotencyKey)
-Api -> Backend: Guarded plan command
-Backend --> Api: Planned mission
-Api --> Workspace: Planned state
+== Plan ==
+Operator -> View : click Plan
+View -> WF : plan()
+WF -> Api : plan(id, "plan-<id>")
+Api -> Backend : POST /missions/:id/plan\nIdempotency-Key
+Backend --> Api : Mission (PLANNED)
+WF -> View : renderMissions(...), setEditor(planned, "Planned mission")
+
+note over WF, Backend
+  Other commands follow the same shape:
+  cancelMission() -> POST /cancel, retry() -> POST /derive
+  (creates a NEW draft from a FAILED mission).
+  Errors are shown with window.alert(message).
+end note
 @enduml

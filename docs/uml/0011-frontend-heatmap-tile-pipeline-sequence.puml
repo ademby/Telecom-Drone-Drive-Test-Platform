@@ -1,0 +1,66 @@
+@startuml
+title Signal Quality heatmap: range, tiles, palette, refresh
+autonumber
+
+actor Operator
+participant "HeatmapOperationsView" as View
+participant "HeatmapWorkflow" as WF
+participant "HttpSignalQualityApi" as Api
+participant "HttpSignalQualityRenderer" as R
+participant "SignalQualityTileSource\n(Canvas)" as Src
+participant "signal-quality.worker" as Worker
+participant "OpenLayers TileLayer" as OL
+participant "Backend" as Backend
+
+== Show ==
+Operator -> View : toggle
+View -> WF : toggle()
+opt not loaded yet
+  WF -> Api : getRange()
+  Api -> Backend : GET /signal-quality/range
+  Backend --> Api : {min, max, version}
+  Api -> Api : remember version for tile URLs
+  WF -> R : setRange(min, max, version)
+  R -> Src : setRange(...)  (clear numeric cache if version changed)
+  Src -> Worker : {type: "config", min, max}
+end
+WF -> R : setVisible(true), legend visible
+
+== Tiles ==
+OL -> Src : loader(z, x, y)
+alt numeric tile cached (key version:z:x:y)
+  Src -> Src : reuse Float32Array
+else in flight
+  Src -> Src : join pending promise
+else
+  Src -> Api : getTile({z, x, y})
+  Api -> Backend : GET /signal-quality/tiles/z/x/y?v=version
+  Backend --> Api : 64x64 Float32 grid (NaN = no data)
+  Api --> Src : Float32Array
+  Src -> Src : store copy in LRU (max 512)
+end
+Src -> Worker : {type: "grid-tile", grid} (transferred copy)
+Worker -> Worker : LUT colorize, NaN transparent, upscale to 256 px
+Worker --> Src : ImageBitmap
+Src --> OL : tile image
+
+== Palette edit (no network) ==
+Operator -> View : edit stops
+View -> WF : setPalette(palette)
+WF -> WF : isValidPalette() else throw
+WF -> R : setPalette(palette)
+R -> Src : setPalette(palette)
+Src -> Worker : {type: "palette", stops}
+Src -> Src : presentationGeneration++ ; changed()
+OL -> Src : loader(z, x, y) again (new cache key)
+Src -> Src : numeric tile from cache, re-colorize
+
+== Refresh after finalize ==
+Operator -> View : Refresh
+View -> WF : refresh()
+WF -> Api : getRange()
+Api --> WF : {min, max, version'}
+WF -> R : setRange(min, max, version')
+R -> Src : version changed -> clear numeric cache
+OL -> Src : tiles re-requested with ?v=version'
+@enduml

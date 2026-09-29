@@ -1,45 +1,74 @@
 @startuml
+title Platform use cases (as implemented + planned)
 left to right direction
 
-actor Operator
-actor Drone
+actor "Operator" as Operator
+actor "Drone" as Drone
+actor "Backend timer" as Timer
 
 rectangle "Drone Drive-Test Platform" {
-  usecase "Plan mission" as Plan
-  usecase "Edit route revision" as EditRoute
-  usecase "Schedule mission" as Schedule
-  usecase "Assign drone" as Assign
-  usecase "Monitor execution" as Monitor
-  usecase "Validate mission result" as Validate
+  usecase "Navigate administrative geography" as Navigate
+  usecase "Search location (preview / commit)" as Search
+
+  usecase "Create draft mission" as Draft
+  usecase "Draw / modify / translate route" as Route
+  usecase "Set name, drone, schedule" as Schedule
+  usecase "Plan mission (DRAFT -> PLANNED)" as Plan
+  usecase "Cancel mission" as Cancel
+  usecase "Derive new draft from failed mission" as Derive
+
+  usecase "Review mission result" as Review
+  usecase "Select / approve / reject measurements" as Decide
+  usecase "Save result revision" as Save
   usecase "Finalize result revision" as Finalize
-  usecase "Explore approved global surface" as Explore
-  usecase "Inspect measurements" as Inspect
-  usecase "View drone status" as DroneStatus
+
+  usecase "Explore Signal Quality heatmap" as Explore
+  usecase "Refresh heatmap version" as Refresh
+  usecase "Edit heatmap palette" as Palette
 
   usecase "Claim planned mission" as Claim
   usecase "Report execution status" as Report
   usecase "Upload mission result" as Upload
+  usecase "Fail missed-dispatch missions" as Sweep
+
+  usecase "Monitor drone status (planned)" as Monitor
 }
 
+Operator --> Navigate
+Operator --> Search
+Operator --> Draft
 Operator --> Plan
-Operator --> EditRoute
-Operator --> Schedule
-Operator --> Assign
-Operator --> Monitor
-Operator --> Validate
-Operator --> Finalize
+Operator --> Cancel
+Operator --> Derive
+Operator --> Review
 Operator --> Explore
-Operator --> Inspect
-Operator --> DroneStatus
+Operator --> Monitor
 
 Drone --> Claim
 Drone --> Report
 Drone --> Upload
+Timer --> Sweep
 
-Plan .> EditRoute : <<include>>
-Plan .> Schedule : <<include>>
-Plan .> Assign : <<include>>
-Validate .> Finalize : <<extend>>
-Explore .> Inspect : <<extend>>
-Monitor .> DroneStatus : <<extend>>
+Draft ..> Route : <<include>>
+Draft ..> Schedule : <<include>>
+Review ..> Decide : <<include>>
+Save ..> Review : <<extend>>
+Finalize ..> Save : <<extend>>
+Refresh ..> Explore : <<extend>>
+Palette ..> Explore : <<extend>>
+Search ..> Navigate : <<extend>>
+
+note right of Monitor
+  Not implemented. Today the operator only
+  sees the mission state badge in the
+  Missions list; there is no live drone view
+  (see docs/future-features.md).
+end note
+
+note bottom of Finalize
+  Finalizing does not push anything to the
+  heatmap. The operator gets a fading advisory
+  and refreshes the heatmap manually
+  (ADR-0011).
+end note
 @enduml

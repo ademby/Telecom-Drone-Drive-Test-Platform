@@ -1,62 +1,109 @@
 @startuml
+title Frontend component boundaries (post-refactor)
 skinparam componentStyle rectangle
 
-package "Frontend application" {
-  [Composition root] as Root
-  [Operations panel shell] as Shell
-  [Mission operations view] as Planning
-  [Result validation view] as Validation
-  [Heatmap operations view] as Analysis
-  [Location search view] as Search
-  [Navigation workflow] as Navigation
-  [Mission workflow] as Mission
-  [Heatmap workflow] as Heatmap
-  [MapController] as MapCtl
-  [HttpMissionApi] as MissionApi
-  [HttpMissionResultApi] as ResultApi
-  [HttpSignalQualityApi] as SqApi
-  [SignalQualityRenderer] as Renderer
-  [Local palette / ui.config] as Preferences
+package "apps/frontend/src/common" {
+  [CompositionRoot] as Root
+  [OperationsPanel\n(generic view host)] as Panel
+  [PanelView\n(contract)] as PanelView
 }
 
-cloud "Backend /api" as Backend
+package "apps/frontend/src/map" {
+  [MapController] as MapCtl
+  [BasemapManager +\nBasemapControl] as Basemap
+  [styles.ts] as Styles
+}
 
-Root --> Shell
-Root --> Navigation
-Root --> Mission
-Root --> Heatmap
-Root --> MapCtl
-Shell --> Planning
-Shell --> Validation
-Shell --> Analysis
-Navigation --> Search
-Navigation --> MapCtl : own layers + controls
-Mission --> MapCtl : own layers + interactions
-Mission --> MissionApi
-Mission --> ResultApi
-Heatmap --> MapCtl : own tile layer + legend
-Heatmap --> SqApi
-Heatmap --> Renderer
-Heatmap --> Preferences
-Renderer --> SqApi : getTile
+package "workflows/navigation" {
+  [NavigationWorkflow] as Nav
+  [AdminDatasetLoader ->\nAdminTree / AdminNode] as AdminData
+  [Breadcrumbs /\nLocationDisplay] as Crumbs
+  [LocationSearch +\nlocationSearchRanking] as Search
+}
 
+package "workflows/mission" {
+  [MissionWorkflow] as Mission
+  [MissionOperationsView] as MissionView
+  [MissionEditor] as Editor
+  [MeasurementReviewController] as Review
+  [HttpMissionApi] as MissionApi
+  [HttpMissionResultApi] as ResultApi
+}
+
+package "workflows/heatmap" {
+  [HeatmapWorkflow] as Heatmap
+  [HeatmapOperationsView] as HeatmapView
+  [HttpSignalQualityApi] as SqApi
+  [SignalQualityRenderer\n(HttpSignalQualityRenderer)] as Renderer
+  [SignalQualityLegend] as Legend
+  [SignalQualityPalette] as Palette
+}
+
+package "packages/contracts" {
+  [mission / mission-result /\nsignal-quality types] as Contracts
+}
+
+cloud "Backend (REST)" as Backend
+
+Root --> MapCtl : creates
+Root --> AdminData : loads dataset
+Root --> Panel : creates
+Root --> Nav : creates
+Root --> Heatmap : creates
+Root --> Mission : creates
+
+Nav --> MapCtl : addLayer / addInteraction /\naddControl, view helpers
+Nav --> AdminData
+Nav --> Crumbs
+Nav --> Search
+Mission --> MapCtl : addLayer, map, projection,\nview helpers
+Heatmap --> MapCtl : addLayer / addControl
+
+Mission --> Panel : registerView / showView
+Heatmap --> Panel : registerView
+MissionView ..> PanelView : provides 3 views
+HeatmapView ..> PanelView : provides 1 view
+Panel ..> PanelView : hosts
+
+Mission --> MissionView
+Mission --> Editor
+Mission --> Review
+Mission --> MissionApi : constructs
+Mission --> ResultApi : constructs
+MissionView --> Mission : user commands
+Review --> Mission : selection / rejection\ncallbacks (back-reference)
+
+Heatmap --> HeatmapView
+Heatmap --> SqApi : constructs
+Heatmap --> Renderer : constructs
+Heatmap --> Legend
+Heatmap --> Palette
+Renderer --> SqApi : getTile()
+
+Review ..> Palette : colors points\n(cross-workflow import)
+MissionView ..> Palette : colors list rows\n(cross-workflow import)
+
+MissionApi ..> Contracts
+ResultApi ..> Contracts
+SqApi ..> Contracts
 MissionApi --> Backend
 ResultApi --> Backend
 SqApi --> Backend
 
-note right of MapCtl
-  Thin shell: OL Map, basemap,
-  shared view helpers only.
-  Feature layers belong to workflows.
+MapCtl --> Basemap
+Nav ..> Styles
+Mission ..> Styles
+
+note bottom of Mission
+  Rule (ADR-0009): no workflow calls another
+  workflow. The only shared collaborators are
+  MapController, OperationsPanel and the
+  palette module.
 end note
 
-note right of Renderer
-  Canvas (default) or WebGL adapter.
-  Numeric tiles + client palette.
-end note
-
-note bottom of Backend
-  Browser consumes typed contracts.
-  Never talks to a drone directly.
+note right of Backend
+  The browser never talks to a drone.
+  Only /missions, /missions/:id/result,
+  /signal-quality are used.
 end note
 @enduml

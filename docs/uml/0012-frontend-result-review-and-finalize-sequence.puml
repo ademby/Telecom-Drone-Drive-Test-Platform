@@ -1,0 +1,62 @@
+@startuml
+title Result review, save and finalize (frontend + backend event)
+autonumber
+
+actor Operator
+participant "MissionOperationsView" as View
+participant "MissionWorkflow" as WF
+participant "MeasurementReviewController" as Review
+participant "HttpMissionResultApi" as Api
+participant "MissionResultService" as MRS
+participant "PrismaMissionResultRepository" as Repo
+participant "DomainEvents" as Events
+participant "SignalQualityService" as SQS
+
+== Open a COMPLETED / FAILED mission ==
+Operator -> View : click mission row
+View -> WF : select(id)
+WF -> View : showReview(mission), panel view "review"
+WF -> Api : get(missionId)
+Api -> MRS : GET /missions/:id/result
+MRS -> Repo : get()
+Repo --> WF : MissionResult
+WF -> View : setResult(result)
+WF -> Review : load(result)
+Review -> Review : build Point features in batches of 500,\nyield each animation frame,\ncolor by Signal Quality palette
+
+== Decide ==
+Operator -> Review : click / shift-click / Ctrl+drag box
+Review -> WF : setMeasurementSelection(ids)
+Operator -> View : Approve / Reject selected
+View -> Review : approveSelected() / rejectSelected()
+Review -> WF : setMeasurementRejection(rejectedIds)
+note right of Review
+  Local, unsaved. Nothing is sent
+  until Save or Finalize.
+end note
+
+== Save or Finalize ==
+Operator -> View : Save review  or  Finalize
+View -> WF : saveReview(rejectedIds, finalize)
+WF -> Api : review(id, {rejectedMeasurementIds, finalize},\n"review-<id>-<timestamp>")
+Api -> MRS : POST /missions/:id/result/revisions
+MRS -> Repo : review(): validate ids, create revision,\nset it as activeRevision (one transaction)
+Repo --> MRS : MissionResult
+opt command.finalize
+  MRS -> Events : emitResultRevisionFinalized({missionId})
+  Events -> SQS : invalidate() (drop points + tile cache)
+end
+MRS --> Api : MissionResult
+Api --> WF : MissionResult
+WF -> View : setResult(result)
+WF -> Review : load(result)
+opt finalize
+  WF -> Operator : fading map advisory:\n"Refresh the heatmap to see updated Signal Quality"
+end
+
+note over WF, SQS
+  MissionWorkflow never calls HeatmapWorkflow.
+  The heatmap only changes when the operator presses Refresh,
+  which reads the new range version (see 0011).
+end note
+@enduml

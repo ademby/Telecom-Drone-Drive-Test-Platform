@@ -1,22 +1,69 @@
 @startuml
+title Core domain model (persisted vs derived vs concept-only)
 hide methods
 skinparam classAttributeIconSize 0
 
-class Operator
-class OperationalArea
-class AdministrativeGeography
-class Drone
-class Mission {
-  lifecycleState
+class Mission <<persisted>> {
+  id
+  name
+  state : MissionState
+  droneId
   earliestStart
   dispatchDeadline
+  failureReason : FailureReason
+  derivedFromId
 }
-class RouteRevision
-class MissionResult
-class ResultRevision
-class Measurement
-class Projection
-class DataTile
+class RouteRevision <<persisted>> {
+  id
+  revision
+  geometry : GeoJSON LineString
+  createdAt
+}
+class MissionResult <<persisted>> {
+  id
+  deviceId
+  uploadedAt
+}
+class Measurement <<persisted>> {
+  id
+  capturedAt
+  longitude
+  latitude
+  source
+  rawObservations : Record<string, number>
+}
+class ResultRevision <<persisted>> {
+  id
+  revision
+  rejectedMeasurementIds
+  finalizedAt
+  createdAt
+}
+class IdempotencyKey <<persisted>> {
+  key
+  missionId
+}
+
+class Projection <<derived, in-memory>> {
+  version
+  min
+  max
+}
+class DataTile <<derived, in-memory>> {
+  z / x / y
+  Float32 grid (64 x 64)
+}
+
+class AdministrativeGeography <<reference data, frontend>> {
+  shapeID
+  shapeName
+  adminLevel
+  parentId
+}
+
+class Operator <<concept only>>
+class Drone <<concept only>>
+class OperationalArea <<concept only>>
 
 enum MissionState {
   DRAFT
@@ -27,45 +74,48 @@ enum MissionState {
   FAILED
   CANCELLED
 }
-
-enum MeasurementDecision {
-  ACCEPTED
-  REJECTED
-  UNREVIEWED
+enum FailureReason {
+  MISSED_DISPATCH
+  EXECUTION_FAILED
+  DATA_INVALID
 }
 
-Operator "1" --> "0..*" Mission : plans
-OperationalArea "1" o-- "0..*" Mission : scopes
-OperationalArea "1" o-- "0..*" AdministrativeGeography : references
-Mission "1" *-- "1..*" RouteRevision : contains
-Mission "1" --> "1" Drone : assigned before dispatch
+Mission "1" *-- "1..*" RouteRevision : routeHistory
+Mission "1" --> "1" RouteRevision : activeRoute
+Mission "0..1" <-- "0..*" Mission : derivedFrom
 Mission "1" --> "0..1" MissionResult : produces (implicit execution)
-MissionResult "1" *-- "1..*" Measurement : contains
-MissionResult "1" *-- "1..*" ResultRevision : is reviewed through
-ResultRevision "1" --> "0..*" Measurement : decides
-Projection "1" --> "1" ResultRevision : derives from approved data
-Projection "1" *-- "0..*" DataTile : materializes as
-MissionState <-- Mission : uses
-MeasurementDecision <-- ResultRevision : records
+Mission "1" o-- "0..*" IdempotencyKey
+MissionResult "1" *-- "1..*" Measurement
+MissionResult "1" *-- "0..*" ResultRevision : revisionHistory
+MissionResult "1" --> "0..1" ResultRevision : activeRevision
+ResultRevision ..> Measurement : rejects (by id)
+Projection ..> ResultRevision : derived from every mission's\nactive FINALIZED revision
+Projection "1" *-- "0..*" DataTile
+Mission ..> MissionState
+Mission ..> FailureReason
+
+Mission ..> Drone : droneId (string only)
+Operator ..> Mission : plans / reviews
+OperationalArea ..> AdministrativeGeography : may reference
+AdministrativeGeography ..> Mission : navigation only,\nno ownership
 
 note right of Mission
-  Execution is implicit; there is no
-  first-class ExecutionAttempt entity.
-  A failed mission can create a new
-  derived mission; it is not retried
-  in place.
+  Route-centric (ADR-0008). Execution is implicit:
+  no ExecutionAttempt entity. A failed mission
+  produces a NEW derived mission, never a retry
+  in place. There is no Operator, Drone or
+  OperationalArea table: droneId is a plain string.
 end note
 
-note right of Measurement
-  Raw measurements are immutable.
-  Derived KPI values are not part of
-  the measurement. Rejected measurements
-  remain auditable but are excluded from
-  approved projections.
+note right of ResultRevision
+  A revision is immutable. "Accepted" is not stored:
+  a measurement is accepted iff it is not in
+  rejectedMeasurementIds. Approved data exists only
+  when the ACTIVE revision has finalizedAt set.
 end note
 
 note right of DataTile
-  Numeric values only.
-  Presentation colors stay client-side.
+  Numeric values only, NaN = no data.
+  Colors are a frontend concern (ADR-0004).
 end note
 @enduml

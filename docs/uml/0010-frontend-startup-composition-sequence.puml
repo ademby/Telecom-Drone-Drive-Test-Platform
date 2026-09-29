@@ -1,0 +1,54 @@
+@startuml
+title Frontend startup and composition
+autonumber
+
+participant "main.ts" as Main
+participant "CompositionRoot" as Root
+participant "MapController" as Map
+participant "AdminDatasetLoader" as Loader
+participant "OperationsPanel" as Panel
+participant "NavigationWorkflow" as Nav
+participant "HeatmapWorkflow" as Heat
+participant "MissionWorkflow" as Mission
+participant "Backend" as API
+
+Main -> Root : CompositionRoot.create()
+Root -> Map : new MapController("map-container")
+note right of Map
+  ol/Map + basemap layers + BasemapControl.
+  No feature layers.
+end note
+Root -> Loader : loadDataset({featureProjection, url})
+Loader -> Loader : GET /data/boundaries.geojson,\nbuild AdminTree (exactly one ADM0 root)
+Loader --> Root : AdminDataset
+Root -> Root : new CompositionRoot(map, dataset)
+
+group constructor (dependency order)
+  Root -> Panel : new OperationsPanel()\n(appends <aside> to body)
+  Root -> Nav : new NavigationWorkflow({mapController, adminDataset})
+  Nav -> Map : addControl(Breadcrumbs), addLayer(admin LayerGroup),\naddInteraction(Select), addControl(LocationSearch)
+  Root -> Heat : new HeatmapWorkflow({mapController, operationsPanel})
+  Heat -> Map : addLayer(renderer.layer), addControl(legend)
+  Heat -> Panel : registerView(heatmap)
+  Root -> Mission : new MissionWorkflow({mapController, operationsPanel})
+  Mission -> Map : addLayer(route + measurement LayerGroup)
+  Mission -> Panel : registerView(missions, editor, review)
+end
+
+Root -> Nav : showInitialRoot()
+Root -> Mission : load()  (fire and forget)
+Mission -> API : GET /missions
+Root -> Heat : load()  (fire and forget)
+Heat -> API : GET /signal-quality/range
+note right of Heat
+  Layer starts hidden; the operator toggles it.
+end note
+Root --> Main : CompositionRoot
+Main -> Main : DEV only: globalThis.compositionRoot
+
+note over Main, API
+  On any startup error main.ts inserts a .startup-error banner.
+  A backend failure in Mission.load()/Heat.load() is NOT caught
+  there (void promises), so it surfaces as an unhandled rejection.
+end note
+@enduml

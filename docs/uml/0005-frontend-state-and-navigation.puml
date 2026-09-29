@@ -1,63 +1,94 @@
 @startuml
+title Frontend state machines (as implemented)
 hide empty description
 
-[*] --> Workspace
+state "Runtime (independent regions)" as Runtime {
 
-state Workspace {
-  [*] --> Inspecting
-
-  state Inspecting {
-    [*] --> GlobalSurface
-    GlobalSurface --> GeographySelected : select geography
-    GeographySelected --> GlobalSurface : clear selection
-    GlobalSurface --> MissionSelected : select mission
-    MissionSelected --> GlobalSurface : clear selection
+  state "Operations panel" as PanelState {
+    [*] --> Home
+    Home --> Heatmap : click heatmap card
+    Home --> Missions : click missions card
+    Heatmap --> Home : back
+    Missions --> Home : back
+    Missions --> Editor : New mission /\nselect DRAFT, PLANNED,\nDISPATCHED, RUNNING, CANCELLED
+    Missions --> Review : select COMPLETED / FAILED
+    Editor --> Missions : back() or cancel() of a new draft
+    Review --> Missions : back()
+    Editor --> Editor : save / plan / cancelMission / retry
   }
 
-  Inspecting --> Planning : new/edit draft mission
-  Inspecting --> Validating : open completed result
-  Inspecting --> Searching : expand location search
-  Planning --> Inspecting : save/cancel
-  Validating --> Inspecting : close/finalize
-  Searching --> Inspecting : select proposition
-  Searching --> Inspecting : Escape / close
+  --
+
+  state "Route editor tool" as ToolState {
+    [*] --> idle
+    idle --> draw : startNew / startDraw
+    idle --> modify : startModify (needs a feature)
+    idle --> translate : startTranslate (needs a feature)
+    draw --> modify : startModify
+    draw --> translate : startTranslate
+    modify --> draw : startDraw
+    modify --> translate : startTranslate
+    translate --> draw : startDraw
+    translate --> modify : startModify
+    modify --> idle : stop()
+    translate --> idle : stop()
+    draw --> idle : stop()
+  }
+
+  --
+
+  state "Administrative navigation" as NavState {
+    [*] --> Root : showInitialRoot()
+    Root --> Selected : click feature /\nbreadcrumb / search select
+    Selected --> Selected : select another node
+    Selected --> Previewing : previewNode()\n(snapshot captured once)
+    Root --> Previewing : previewNode()
+    Previewing --> Previewing : previewNode(other)
+    Previewing --> Selected : commitPreview(node)
+    Previewing --> Selected : restorePreview()\n(previous selection)
+    Previewing --> Root : restorePreview()\n(nothing was selected)
+  }
+
+  --
+
+  state "Signal Quality layer" as HeatState {
+    [*] --> NotLoaded
+    NotLoaded --> Hidden : load() ok (at startup)
+    NotLoaded --> Visible : toggle() -> load() ok
+    Hidden --> Visible : toggle()
+    Visible --> Hidden : toggle()
+    Hidden --> Hidden : refresh()
+    Visible --> Visible : refresh()\n(new range/version)
+  }
+
+  --
+
+  state "Measurement review data" as ReviewState {
+    [*] --> Empty
+    Empty --> Loading : load(result)
+    Loading --> Loaded : all batches added
+    Loading --> Empty : clear() (stale load aborted)
+    Loaded --> Loaded : select / approve / reject\n(local, unsaved)
+    Loaded --> Empty : clear() (mission changed,\nback, new mission)
+  }
 }
 
-state Searching {
-  [*] --> Querying
-  Querying --> ShowingPropositions : input debounce completes
-  ShowingPropositions --> Previewing : pointer pauses
-  Previewing --> ShowingPropositions : pointer moves away
-  ShowingPropositions --> Previewing : pointer pauses
-  ShowingPropositions --> CommittingSelection : Enter / click
-  CommittingSelection --> Inspecting : selection committed
-  ShowingPropositions --> Querying : query changes
-}
+note as N_PanelState
+  Panel visibility (retract / hide) is a
+  separate CSS state. hidePanel() has no
+  reopen path in the UI today.
+end note
 
-state Planning {
-  [*] --> EditingRoute
-  EditingRoute --> ConfiguringMission : route valid
-  ConfiguringMission --> EditingRoute : edit route
-  ConfiguringMission --> ReadyToSave : required fields valid
-  ReadyToSave --> EditingRoute : route changed
-  ReadyToSave --> Inspecting : save draft
-  Planning --> Inspecting : cancel
-}
+note as N_ToolState
+  Known gap: the Draw interaction's drawend
+  disables interactions but does not emit the
+  idle mode, so the active-tool highlight and
+  cursor class can stay on draw.
+end note
 
-state Validating {
-  [*] --> ReviewingMeasurements
-  ReviewingMeasurements --> ReviewingCandidates : request supersession suggestions
-  ReviewingCandidates --> ReviewingMeasurements : accept/reject candidates
-  ReviewingMeasurements --> FinalizationReady : decisions complete
-  FinalizationReady --> ReviewingMeasurements : revise decisions
-  FinalizationReady --> ProjectionProcessing : finalize revision
-  ProjectionProcessing --> Inspecting : projection status visible
-  Validating --> Inspecting : cancel
-}
-
-note right of Workspace
-  URL state: data scope, selected mission,
-  geography, and map extent.
-  Local state: appearance preferences.
+note as N_HeatState
+  Nothing links this region to the
+  Review region. After a finalize the
+  operator refreshes manually (ADR-0011).
 end note
 @enduml

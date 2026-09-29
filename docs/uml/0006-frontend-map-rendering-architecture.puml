@@ -1,65 +1,93 @@
 @startuml
+title Frontend map rendering architecture
 skinparam componentStyle rectangle
 
-package "Map shell" {
-  [MapController] as MapController
-  [BasemapManager] as Basemap
+package "Map shell (map/)" {
+  [MapController\n(ol/Map, view helpers)] as MapController
+  [BasemapManager +\nBasemapControl] as Basemap
 }
 
-package "NavigationWorkflow" {
-  [Geography layers] as GeographyLayer
-  [Select interaction] as SelectIx
-}
-
-package "MissionWorkflow" {
-  [Mission route layer] as MissionLayer
-  [Measurement vector layer] as MeasurementLayer
-  [MissionEditor / MeasurementReview] as Editors
+package "NavigationWorkflow (LayerGroup)" {
+  [context layer  z10] as CtxLayer
+  [active layer  z20] as ActiveLayer
+  [selection layer  z30] as SelLayer
+  [hover layer  z40 (unused)] as HoverLayer
+  [Select interaction\n(scoped to active layer)] as SelectIx
+  [Breadcrumbs control] as Crumbs
+  [LocationSearch control] as Search
 }
 
 package "HeatmapWorkflow" {
-  [SignalQualityRenderer] as Renderer
-  [SignalQualityTileSource Canvas] as CanvasSrc
-  [SignalQualityTileSource WebGL] as WebGlSrc
-  [SignalQualityLegend] as Legend
-  [Palette] as Palette
+  [SignalQualityRenderer.layer  z45\n(TileLayer or WebGLTileLayer)] as HeatLayer
+  [SignalQualityTileSource\nCanvas + worker (default)] as CanvasSrc
+  [SignalQualityTileSource_ForWebGL\n(retained)] as WebGlSrc
+  [signal-quality.worker\n(LUT colorize)] as Worker
+  [SignalQualityLegend control] as Legend
+  [SignalQualityPalette\n(presentation only)] as Palette
+}
+
+package "MissionWorkflow (LayerGroup)" {
+  [mission route layer  z50] as RouteLayer
+  [measurement layer  z55] as MeasLayer
+  [MissionEditor\nDraw / Modify / Translate / Snap] as Editor
+  [MeasurementReviewController\nSelect / DragBox] as Review
 }
 
 package "OpenLayers" {
-  [TileLayer / WebGLTileLayer] as TileLayers
-  [VectorLayer / VectorSource] as Vectors
-  [Tile and browser cache] as Cache
+  [VectorSource / VectorLayer] as Vectors
+  [Tile + numeric caches] as Cache
 }
 
+cloud "Backend" as Backend
+
 MapController --> Basemap
-Navigation --> MapController : addLayer / addInteraction
-Mission --> MapController : addLayer / addInteraction
-Heatmap --> MapController : addLayer / addControl
 
-GeographyLayer --> Vectors
-SelectIx --> GeographyLayer
-MissionLayer --> Vectors
-MeasurementLayer --> Vectors
-Editors --> MissionLayer
-Editors --> MeasurementLayer
+Crumbs --> MapController : addControl
+Search --> MapController : addControl
+SelectIx --> MapController : addInteraction
+CtxLayer --> Vectors
+ActiveLayer --> Vectors
+SelLayer --> Vectors
+HoverLayer --> Vectors
+SelectIx --> ActiveLayer
 
-Renderer --> CanvasSrc
-Renderer --> WebGlSrc
-Renderer --> TileLayers
-CanvasSrc --> Cache
+HeatLayer --> MapController : addLayer
+Legend --> MapController : addControl
+HeatLayer --> CanvasSrc : canvas mode
+HeatLayer --> WebGlSrc : webgl mode
+CanvasSrc --> Worker : grid-tile, config, palette
+CanvasSrc --> Cache : numeric LRU (512)\n+ OL image cache
 WebGlSrc --> Cache
+CanvasSrc --> Backend : GET /signal-quality/tiles/z/x/y?v=
+WebGlSrc --> Backend : same
 Legend --> Palette
-Renderer --> Palette : client-side only
+Worker ..> Palette : stops pushed via message
+
+RouteLayer --> MapController : addLayer
+MeasLayer --> MapController : addLayer
+RouteLayer --> Vectors
+MeasLayer --> Vectors
+Editor --> RouteLayer : edits features
+Editor --> MapController : addInteraction
+Review --> MeasLayer : builds point features
+Review --> MapController : addInteraction
+Review ..> Palette : per-point color
 
 note right of CanvasSrc
-  Backend returns normalized numeric data.
-  Projection version is part of the cache key.
-  Palette changes do not refetch tiles.
-  Selection: ui.config.kpiRenderer.
+  Backend returns 64x64 Float32 grids (NaN = no data).
+  Numeric cache key = version:z:x:y.
+  OL cache key = version + presentation generation, so a
+  palette change re-colorizes from cache with no network.
 end note
 
-note bottom of Renderer
-  WebGL adapter retained (ADR-0006).
-  Canvas path is the live default.
+note bottom of HeatLayer
+  Canvas vs WebGL is chosen once at construction from
+  ui.config.kpiRenderer (ADR-0006). WebGL is not operator-ready.
+end note
+
+note bottom of Editor
+  Each workflow registers and scopes its own interactions
+  (e.g. Select restricted to its own layer) so they do not
+  steal each other's clicks.
 end note
 @enduml

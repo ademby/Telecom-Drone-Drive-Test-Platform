@@ -1,0 +1,36 @@
+@startuml
+title Mission lifecycle (as enforced by PrismaMissionRepository)
+hide empty description
+
+[*] --> DRAFT : create()
+
+DRAFT --> DRAFT : updateDraft()\n(new immutable route revision)
+DRAFT --> PLANNED : plan()
+PLANNED --> DISPATCHED : claim(droneId)\ndrone must match,\ndeadline not passed
+DISPATCHED --> RUNNING : reportStatus(RUNNING)
+RUNNING --> COMPLETED : reportStatus(COMPLETED)
+DISPATCHED --> FAILED : reportStatus(FAILED)\nEXECUTION_FAILED | DATA_INVALID
+RUNNING --> FAILED : reportStatus(FAILED)\nEXECUTION_FAILED | DATA_INVALID
+PLANNED --> FAILED : sweepMissedDispatch()\nMISSED_DISPATCH (every 10 s)
+
+DRAFT --> CANCELLED : cancel()
+PLANNED --> CANCELLED : cancel()
+DISPATCHED --> CANCELLED : cancel()
+RUNNING --> CANCELLED : cancel()
+
+FAILED --> [*]
+COMPLETED --> [*]
+CANCELLED --> [*]
+
+note right of FAILED
+  derive() on a FAILED mission creates a NEW
+  DRAFT mission (derivedFrom = failed id).
+  The failed mission itself stays FAILED.
+end note
+
+note right of COMPLETED
+  Only a COMPLETED mission accepts a result
+  upload. Review/finalize are result-level
+  operations and do NOT change MissionState.
+end note
+@enduml

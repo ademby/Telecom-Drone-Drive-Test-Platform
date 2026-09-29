@@ -1,0 +1,67 @@
+@startuml
+title Backend module structure (NestJS, ADR-0007 / ADR-0012)
+skinparam componentStyle rectangle
+
+package "AppModule" {
+  [HealthController] as Health
+
+  package "CommonModule (@Global)" {
+    [PrismaService] as Prisma
+    [DomainEvents\n(node EventEmitter wrapper)] as Events
+    [ApiError] as ApiError
+  }
+
+  package "MissionModule" {
+    [MissionController] as MC
+    [MissionService] as MS
+    [PrismaMissionRepository] as MR
+    [MissionDispatchSweeper\n(every 10 s)] as Sweeper
+  }
+
+  package "MissionResultModule" {
+    [MissionResultController] as MRC
+    [MissionResultService] as MRS
+    [PrismaMissionResultRepository] as MRR
+  }
+
+  package "SignalQualityModule" {
+    [SignalQualityController] as SQC
+    [SignalQualityService\n(snapshot + tile cache + IDW)] as SQS
+    [signalQualityConfig] as SQConf
+  }
+}
+
+database "PostgreSQL" as DB
+
+MC --> MS
+MS --> MR
+Sweeper --> MR
+MR --> Prisma
+
+MRC --> MRS
+MRS --> MRR
+MRR --> Prisma
+MRS ..> Events : emit ResultRevisionFinalized
+
+SQC --> SQS
+SQS --> MRR : allApprovedMeasurements()\n(only module import edge)
+SQS ..> Events : on ResultRevisionFinalized -> invalidate()
+SQS --> SQConf
+
+Prisma --> DB
+MR ..> ApiError
+MRR ..> ApiError
+
+note bottom of MissionModule
+  No dependency on MissionResult or SignalQuality.
+  MissionResultRepository reads Mission rows through
+  Prisma directly (upload requires state COMPLETED).
+end note
+
+note right of Events
+  Global exception filter (main.ts) maps ApiError to
+  { error } with its status; validation is a global
+  ValidationPipe (whitelist, transform); body limit 20 MB;
+  CORS origin "*".
+end note
+@enduml

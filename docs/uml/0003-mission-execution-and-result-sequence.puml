@@ -1,35 +1,57 @@
 @startuml
+title End-to-end: plan, execute, upload, review, finalize
 autonumber
 
 actor Operator
-participant "Platform API" as API
-participant "Drone" as Drone
-participant "Projection Processor" as Processor
+participant "Operator UI\n(frontend)" as UI
+participant "Backend\n(NestJS)" as API
+participant "DomainEvents" as Events
+participant "SignalQualityService" as SQ
+participant "Drone\n(drone-mock in dev)" as Drone
 
-Operator -> API: Create and plan mission
-API --> Operator: Planned mission
+== Planning (operator) ==
+Operator -> UI : draw route, fill form, Save
+UI -> API : POST /missions
+API --> UI : Mission (DRAFT, route revision 1)
+Operator -> UI : Plan
+UI -> API : POST /missions/:id/plan\n(Idempotency-Key)
+API --> UI : Mission (PLANNED)
 
-Drone -> API: Poll for eligible missions
-API --> Drone: Mission details
-Drone -> API: Claim mission (idempotency key)
-API --> Drone: Dispatch accepted
-API --> Operator: Dispatched state
+== Execution (drone-initiated REST, ADR-0003) ==
+Drone -> API : GET /missions?state=PLANNED
+API --> Drone : planned missions
+Drone -> API : POST /missions/:id/claim {droneId}\n(Idempotency-Key)
+API --> Drone : Mission (DISPATCHED)
+Drone -> API : POST /missions/:id/status {RUNNING}
+API --> Drone : Mission (RUNNING)
+Drone -> API : POST /missions/:id/status {COMPLETED}
+API --> Drone : Mission (COMPLETED)
+Drone -> API : POST /missions/:id/result {deviceId, measurements[]}
+note right of API
+  Accepted only when the mission is COMPLETED
+  and has no result yet (409 otherwise).
+end note
+API --> Drone : MissionResult (no active revision)
 
-Drone -> API: Report started
-API --> Operator: Running state
-Drone -> API: Report completed
-API --> Operator: Completed execution
+== Validation (operator) ==
+Operator -> UI : open COMPLETED mission
+UI -> API : GET /missions/:id/result
+API --> UI : MissionResult + measurements
+Operator -> UI : select / reject points, Save or Finalize
+UI -> API : POST /missions/:id/result/revisions\n{rejectedMeasurementIds, finalize}\n(Idempotency-Key)
+API --> UI : MissionResult (new active revision)
 
-Drone -> API: Upload manifest/data
-API --> Drone: Upload acknowledgement
-Drone -> API: Finalize upload
-API --> Operator: Result ready for validation
+opt finalize == true
+  API -> Events : emitResultRevisionFinalized({missionId})
+  Events -> SQ : listener -> invalidate()
+  SQ -> SQ : drop points snapshot + tile cache
+  UI -> Operator : fading advisory\n"Refresh the heatmap"
+end
 
-Operator -> API: Accept/reject measurements
-API --> Operator: Draft result revision
-Operator -> API: Finalize result revision
-API --> Operator: Finalized revision
-API -> Processor: Recalculate projection asynchronously
-Processor --> API: New projection version
-API --> Operator: Projection freshness updated
+== Exploration (operator) ==
+Operator -> UI : Heatmap > Refresh
+UI -> API : GET /signal-quality/range
+API --> UI : {min, max, version}
+UI -> API : GET /signal-quality/tiles/:z/:x/:y?v=version
+API --> UI : Float32 grid tile
 @enduml

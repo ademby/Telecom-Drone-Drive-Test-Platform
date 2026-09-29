@@ -1,29 +1,62 @@
 @startuml
+title Frontend location search with preview / commit
 autonumber
 
 actor Operator
-participant "Location search view" as Search
-participant "Local geography index" as Index
-participant "Navigation workflow" as Navigation
-participant "Map rendering boundary" as Map
+participant "LocationSearch" as Search
+participant "locationSearchRanking" as Rank
+participant "NavigationWorkflow" as Nav
+participant "MapController" as Map
+participant "Breadcrumbs" as Crumbs
 
-Operator -> Search: Expand search
-Operator -> Search: Type query
-Search -> Search: Debounce input
-Search -> Index: Search names, aliases, codes, and paths
-Index --> Search: Ordered propositions
-Search --> Operator: Show full-path propositions
+note over Search, Nav
+  The "index" is the in-memory option list built once by
+  NavigationWorkflow.getSearchOptions() from AdminTree.allNodes()
+  (label = shapeName, path = "Country / Region / ...").
+end note
 
-Operator -> Search: Pause pointer on proposition
-Search -> Navigation: Begin temporary preview
-Navigation -> Navigation: Save committed navigation state
-Navigation -> Map: Preview region, layers, breadcrumbs, extent
-Operator -> Search: Move pointer away
-Search -> Navigation: End temporary preview
-Navigation -> Map: Restore saved navigation state with hop
+Operator -> Search : click "Search location"
+Search -> Search : expand panel, focus input
+Operator -> Search : type query
+Search -> Rank : rankLocationOptions(options, query)
+note right of Rank
+  No debounce: runs on every input event.
+  < 2 chars -> nothing. Score: exact label 100,
+  prefix 80, contains 60, path contains 30.
+  Top 12, ties by path.
+end note
+Rank --> Search : ordered options
+Search --> Operator : list of full paths
 
-Operator -> Search: Click proposition / press Enter
-Search -> Navigation: Commit region selection
-Navigation -> Map: Select region, update layers/breadcrumbs, choose transition, fit view
-Search --> Operator: Close proposition list
+== Preview (hover or arrow keys) ==
+Operator -> Search : pointer rests on / arrow to an option
+Search -> Search : start 350 ms dwell timer
+Search -> Nav : onPreviewStart(node) -> previewNode(node)
+Nav -> Nav : capture snapshot once\n(selected, path, active, context, center, zoom)
+Nav -> Nav : selectNode(node): update layers + navigation
+Nav -> Map : fitViewToFeature or fitViewToFeatureHop
+Nav -> Crumbs : setPath(path)
+
+Operator -> Search : pointer leaves the list
+Search -> Nav : onPreviewEnd() -> restorePreview()
+Nav -> Nav : restore snapshot (layers, path, navigation)
+Nav -> Map : hopToView(snapshot.center, snapshot.zoom)
+Nav -> Crumbs : setPath(snapshot.path)
+
+== Commit ==
+Operator -> Search : click option or press Enter
+alt option is the one being previewed
+  Search -> Nav : onPreviewCommit(node) -> commitPreview(node)
+  Nav -> Nav : drop snapshot, navigation.selected = node
+else not previewing it
+  Search -> Nav : endPreview, then onSelect(node) -> selectNode(node)
+  Nav -> Map : select, choose transition, fit view
+end
+Search -> Search : collapse panel, clear input
+
+note over Search
+  Escape collapses the panel and ends any preview.
+  Transition rule (navigationTransition): plain fit when going
+  to the root or between ancestor/descendant; otherwise a "hop".
+end note
 @enduml
