@@ -29,4 +29,6 @@ Endpoints:
 - `POST /missions/:id/claim`
 - `POST /missions/:id/report`
 
-Claims and reports are translated into calls to the backend. The simulator itself keeps no persistent drone state and is only a local development tool.
+Claims and reports are forwarded to the backend `claim` and `status` endpoints with a fresh `Idempotency-Key`. `GET /planned-missions` forwards `GET /missions?state=PLANNED`.
+
+It is **driven by hand or script**: it does not poll planned missions on its own and it does **not** upload results (demo results come from `tools/db` seeds). It keeps no drone state and is only a local development tool; production drones call the backend directly (ADR-0003).

@@ -1,143 +1,164 @@
-## Architecture
+# Architecture diagrams
 
-### 1. System boundaries
+Mermaid overview diagrams that render directly on GitHub. They describe the code **as it is after the frontend refactor** (commits `refactor 1` to `refactor 5`).
+
+- Detailed prose: [`architecture/frontend.md`](architecture/frontend.md), [`architecture/backend.md`](architecture/backend.md)
+- Vocabulary: [`domain.md`](domain.md)
+- Decisions: [`adr/`](adr/)
+- Fine-grained PlantUML sources (class, sequence, state): [`uml/`](uml/), index at the bottom of this page
+
+## 1. Domain overview
 
 ```mermaid
-flowchart TB
-    subgraph Browser["Browser — apps/frontend"]
-        direction TB
-        NAV["NavigationWorkflow"]
-        MIS["MissionWorkflow"]
-        HEAT["HeatmapWorkflow"]
-        MAPC["MapController<br/>(OL Map, basemap, view helpers)"]
-        NAV --> MAPC
-        MIS --> MAPC
-        HEAT --> MAPC
+classDiagram
+    class Mission {
+        state
+        droneId
+        earliestStart
+        dispatchDeadline
+        failureReason
+        derivedFrom
+    }
+    class RouteRevision {
+        revision
+        geometry
+    }
+    class MissionResult {
+        deviceId
+        uploadedAt
+    }
+    class Measurement {
+        capturedAt
+        longitude
+        latitude
+        rawObservations
+    }
+    class ResultRevision {
+        revision
+        rejectedMeasurementIds
+        finalizedAt
+    }
+    class Projection {
+        version
+        min
+        max
+    }
+
+    Mission "1" *-- "1..*" RouteRevision : routeHistory
+    Mission "1" --> "0..1" MissionResult : produces
+    MissionResult "1" *-- "1..*" Measurement
+    MissionResult "1" *-- "0..*" ResultRevision
+    ResultRevision ..> Measurement : rejects by id
+    Projection ..> ResultRevision : from active finalized revisions
+```
+
+## 2. Mission lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT: create
+    DRAFT --> DRAFT: updateDraft (new route revision)
+    DRAFT --> PLANNED: plan
+    PLANNED --> DISPATCHED: claim (drone)
+    DISPATCHED --> RUNNING: status RUNNING (drone)
+    RUNNING --> COMPLETED: status COMPLETED (drone)
+    DISPATCHED --> FAILED: status FAILED (drone)
+    RUNNING --> FAILED: status FAILED (drone)
+    PLANNED --> FAILED: MISSED_DISPATCH (sweeper)
+
+    DRAFT --> CANCELLED: cancel
+    PLANNED --> CANCELLED: cancel
+    DISPATCHED --> CANCELLED: cancel
+    RUNNING --> CANCELLED: cancel
+
+    COMPLETED --> [*]
+    FAILED --> [*]
+    CANCELLED --> [*]
+```
+
+A `FAILED` mission is never retried in place: `derive` creates a **new** `DRAFT` mission with `derivedFrom` pointing at the failed one. Result review and finalization do not change `MissionState`.
+
+## 3. System boundaries
+
+The browser only talks to the backend. Drones are **clients** of the backend (ADR-0003): the backend never opens a connection to a drone. In development `apps/drone-mock` is a small HTTP façade that a developer drives by hand; it forwards claim/status calls to the real backend endpoints.
+
+```mermaid
+flowchart LR
+    subgraph Browser["Browser: apps/frontend (Vite + OpenLayers)"]
+        UI["Operator UI<br/>3 workflows + map"]
     end
 
-    subgraph Backend["NestJS backend — apps/backend"]
+    subgraph Backend["apps/backend (NestJS)"]
         direction TB
         MM["MissionModule"]
         MRM["MissionResultModule"]
         SQM["SignalQualityModule"]
-        MRM -. "ResultRevisionFinalized event" .-> SQM
+        CM["CommonModule<br/>Prisma, DomainEvents, ApiError"]
     end
 
+    DB[("PostgreSQL")]
     DRONE["Drone (external)<br/>apps/drone-mock in dev"]
+    CONTRACTS["packages/contracts<br/>shared TypeScript types"]
 
-    Browser -- "HTTP / REST" --> Backend
-    Backend -- "REST: claim / status / result" --> DRONE
-    DRONE -- "poll & upload" --> Backend
+    UI -- "REST /missions, /missions/:id/result,<br/>/signal-quality" --> Backend
+    DRONE -- "REST claim / status / result upload<br/>(drone-initiated)" --> Backend
+    Backend --> DB
+
+    UI -. "imports types" .-> CONTRACTS
+    Backend -. "imports types" .-> CONTRACTS
+    DRONE -. "imports types" .-> CONTRACTS
 ```
 
-### 2. Backend module dependencies
-
-```mermaid
-flowchart LR
-    Common["CommonModule<br/>(PrismaService, ApiError, DomainEvents)"]
-
-    Mission["MissionModule"]
-    MissionResult["MissionResultModule"]
-    SignalQuality["SignalQualityModule"]
-
-    Mission --> Common
-    MissionResult --> Common
-    SignalQuality --> Common
-
-    SignalQuality -- "imports<br/>(reads approved measurements)" --> MissionResult
-    MissionResult -. "emits ResultRevisionFinalized" .-> SignalQuality
-
-    Mission -.- NoDep["no dependency on<br/>MissionResult or SignalQuality"]
-    style NoDep fill:none,stroke-dasharray: 3 3
-```
-
-### 3. Mission lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> DRAFT
-    DRAFT --> PLANNED: plan()
-    PLANNED --> DISPATCHED: claim()
-    DISPATCHED --> RUNNING: reportStatus(RUNNING)
-    RUNNING --> COMPLETED: reportStatus(COMPLETED)
-    RUNNING --> FAILED: reportStatus(FAILED)
-    PLANNED --> FAILED: MISSED_DISPATCH\n(dispatch sweeper)
-
-    DRAFT --> CANCELLED: cancel()
-    PLANNED --> CANCELLED: cancel()
-
-    FAILED --> DRAFT: derive()\nnew draft mission
-
-    COMPLETED --> [*]
-    CANCELLED --> [*]
-```
-
-### 4. Result finalization → Signal Quality invalidation
+## 4. Frontend startup
 
 ```mermaid
 sequenceDiagram
-    participant Drone
-    participant MRC as MissionResultController
-    participant MRS as MissionResultService
-    participant Events as DomainEvents
-    participant SQS as SignalQualityService
-    participant Repo as PrismaMissionResultRepository
+    participant Main as main.ts
+    participant Root as CompositionRoot
+    participant Map as MapController
+    participant Loader as AdminDatasetLoader
+    participant Panel as OperationsPanel
+    participant Nav as NavigationWorkflow
+    participant Heat as HeatmapWorkflow
+    participant Mis as MissionWorkflow
 
-    Drone->>MRC: POST /missions/:id/result/revisions
-    MRC->>MRS: review(missionId, command, key)
-    MRS->>Repo: review(missionId, command, key)
-    Repo-->>MRS: ResultRevision (finalized?)
-    alt command.finalize == true
-        MRS->>Events: emitResultRevisionFinalized({missionId})
-        Events-->>SQS: onResultRevisionFinalized()
-        SQS->>SQS: invalidate() tile cache + points snapshot
-    end
-    MRS-->>MRC: result
-    MRC-->>Drone: 200 OK
+    Main->>Root: create()
+    Root->>Map: new MapController()
+    Root->>Loader: loadDataset(projection)
+    Loader-->>Root: AdminDataset (tree)
+    Root->>Panel: new OperationsPanel()
+    Root->>Nav: new NavigationWorkflow(map, dataset)
+    Root->>Heat: new HeatmapWorkflow(map, panel)
+    Heat->>Panel: registerView(heatmap)
+    Root->>Mis: new MissionWorkflow(map, panel)
+    Mis->>Panel: registerView(missions, editor, review)
+    Root->>Nav: showInitialRoot()
+    Root-->>Mis: load() fire and forget
+    Root-->>Heat: load() fire and forget
 ```
 
-### 5. Frontend composition and KPI rendering seam
+## 5. KPI-tiles Pipeline
 
 ```mermaid
-classDiagram
-    class CompositionRoot {
-        +build()
-    }
-    class MapController {
-        +map: OL.Map
-        +basemapManager: BasemapManager
-        +fitViewToFeature()
-        +fitViewToFeatureHop()
-        +hopToView()
-    }
-    class NavigationWorkflow {
-        +load()
-        +select()
-    }
-    class MissionWorkflow {
-        +load()
-        +select()
-    }
-    class HeatmapWorkflow {
-        +toggle()
-        +renderer: SignalQualityRenderer
-    }
-    class SignalQualityRenderer {
-        <<interface>>
-    }
-    class SignalQualityTileSource
-    class SignalQualityTileSource_ForWebGL
+flowchart LR
+    subgraph Server["Backend"]
+        Pts["approved points<br/>(active FINALIZED revisions)<br/>snapshot, 5 s TTL"]
+        IDW["IDW interpolation<br/>spatial buckets"]
+        TC["tile cache<br/>key version:z:x:y"]
+        Pts --> IDW --> TC
+    end
 
-    CompositionRoot --> MapController : builds
-    CompositionRoot --> NavigationWorkflow : builds (passes MapController)
-    CompositionRoot --> MissionWorkflow : builds (passes MapController)
-    CompositionRoot --> HeatmapWorkflow : builds (passes MapController)
+    subgraph Client["Frontend"]
+        Api["HttpSignalQualityApi<br/>Float32Array 64x64"]
+        NC["numeric LRU cache<br/>(512, keyed by version)"]
+        Wk["worker: LUT colorize<br/>NaN = transparent"]
+        Lyr["OL TileLayer"]
+        Pal["palette + range<br/>(client-side only)"]
+        Api --> NC --> Wk --> Lyr
+        Pal -.-> Wk
+    end
 
-    NavigationWorkflow --> MapController : adds layers/interactions
-    MissionWorkflow --> MapController : adds layers/interactions
-    HeatmapWorkflow --> MapController : adds tile layer/legend
-
-    HeatmapWorkflow --> SignalQualityRenderer
-    SignalQualityRenderer <|.. SignalQualityTileSource : Canvas (default)
-    SignalQualityRenderer <|.. SignalQualityTileSource_ForWebGL : WebGL (retained)
+    TC -- "GET /signal-quality/tiles/z/x/y?v=version<br/>immutable, 1 year cache" --> Api
 ```
+
+Colors, thresholds and opacity never cross the wire (ADR-0004). A palette edit re-colorizes from the numeric cache without any request.

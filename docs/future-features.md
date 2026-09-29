@@ -1,6 +1,8 @@
 # Future features
 
-Out of scope for the R-00…R-12 prototype-to-product redesign. Recorded so later work does not re-litigate intent.
+Recorded so later work does not re-litigate intent.
+
+**Status (2026-09):** nothing on this page is implemented. The interim mechanism for heatmap freshness is the operator advisory plus manual refresh (ADR-0011).
 
 ---
 
@@ -48,13 +50,14 @@ Backend is the authority for mission state and projection freshness. The fronten
 
 ### Backend ownership (when built)
 
-- Publish from the same places domain truth changes (e.g. after `ResultRevisionFinalized` and Signal Quality invalidation; mission state transitions).
+- Publish from the same places domain truth changes (e.g. after `ResultRevisionFinalized` and Signal Quality invalidation; mission state transitions). `DomainEvents` (ADR-0012) is the natural hook: add an SSE publisher as another listener.
+- Also emit when a non-finalizing save changes the active revision, if ADR-0013 keeps that behavior.
 - Do not rely on the HTTP finalize response to drive another workflow’s UI.
 
 ### Explicitly not in R-05…R-12
 
 - No SSE endpoint, client, or `receiver` routing in the redesign tickets.
-- Interim UX after finalize: **fading advisory popup** asking the operator to refresh the heatmap (see deep-modules proposal).
+- Interim UX after finalize: **fading advisory** asking the operator to refresh the heatmap (implemented, ADR-0011).
 
 ---
 
@@ -76,5 +79,6 @@ Backend is the authority for mission state and projection freshness. The fronten
 
 ## Other notes
 
+- Drone registry and authentication (the editor currently offers two hard-coded drone ids).
 - Automated validation policies for mission results (beyond operator-driven review) remain open product decisions.
 - Operational area as a mission aggregate is not required by current domain decisions.

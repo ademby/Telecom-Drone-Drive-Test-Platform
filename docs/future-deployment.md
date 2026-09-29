@@ -1,6 +1,6 @@
 # Future tasks — deployment and production
 
-Design notes and backlog only. **Not** part of the current redesign phase (R-00..R-12).  
+Design notes and backlog only. **Not** part of the completed redesign phase (R-00..R-12). Status (2026-09): none of the items below is implemented.  
 Development remains multi-process (`npm run setup` / `resume` / `start`, Podman DB, Vite, drone-mock). Production collapses to a single-server topology with NestJS delivering the frontend.
 
 Related: `docs/future-features.md`, ADR-0001 (platform boundary), ADR-0003 (drone REST), ADR-0004 (numeric tiles).
@@ -39,7 +39,7 @@ NestJS  (API + static SPA)
 ### D-01 — Production configuration
 
 - [ ] Introduce explicit `NODE_ENV=production` behaviour in Nest (logging, CORS, error payloads).
-- [ ] Replace open CORS (`origin: "*"`) with a strict allow-list or same-origin-only.
+- [ ] Replace open CORS (`origin: "*"`, set in `apps/backend/src/main.ts`) with a strict allow-list or same-origin-only.
 - [ ] Document required env vars: `DATABASE_URL`, `PORT`, and any future secrets (drone keys, session).
 - [ ] Keep product/rendering defaults in source modules (`ui.config.ts`, `signal-quality.config.ts`); only infrastructure in env.
 - [ ] Ensure frontend build uses same-origin API (relative paths or empty `VITE_API_BASE_URL`), not `http://localhost:3000`.
@@ -49,7 +49,7 @@ NestJS  (API + static SPA)
 - [ ] Wire Nest to serve the Vite production build (static root under a known path, e.g. `apps/frontend/dist` or a release `public/`).
 - [ ] SPA fallback: non-API routes return `index.html` where needed.
 - [ ] Do not serve Vite **dev** middleware in production.
-- [ ] Confirm admin runtime files (`boundaries.geojson`, `manifest.json`) are either embedded in the SPA build or served as static assets from the same origin.
+- [ ] Confirm admin runtime files (`boundaries.geojson`, `manifest.json`) are either embedded in the SPA build or served as static assets from the same origin. They are generated (git-ignored), so the release build must run or receive the data pipeline output.
 - [ ] Smoke-check: operator loads UI from Nest origin; missions / results / signal-quality work without a separate frontend port.
 
 ### D-03 — Build and release artifact
@@ -96,6 +96,8 @@ NestJS  (API + static SPA)
 - [ ] No dependency on operator UI availability for drone lifecycle.
 
 ### D-09 — Operator access control (when required)
+
+Today there is no operator or drone authentication at all; `droneId` in claim and status bodies is only compared with the mission's assigned drone.
 
 Out of redesign scope; required before exposing a real network.
 

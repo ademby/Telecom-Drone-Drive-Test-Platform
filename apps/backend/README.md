@@ -36,4 +36,6 @@ Main endpoint groups:
 - `/signal-quality/range`
 - `/signal-quality/tiles/:z/:x/:y`
 
-Mutating mission/result commands require `Idempotency-Key`.
+Mutating mission/result commands require an `Idempotency-Key` header. A repeated key returns the mission's current state (keys are global; use unique ones).
+
+There is no authentication yet, and CORS is open (`origin: *`).

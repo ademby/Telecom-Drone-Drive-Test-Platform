@@ -1,5 +1,22 @@
 # Whole platform boundary with separated contexts
 
-The product boundary is the whole drone-drive-test platform, not only the browser application. Frontend, backend orchestration, and drone integration remain explicit contexts so the NestJS deployment can serve the frontend without coupling browser workflows directly to drone behavior.
+**Status:** Accepted (unchanged in substance; wording refreshed after the frontend refactor)
 
-**Consequences:** The browser consumes backend contracts, the backend is authoritative for platform state, and drone communication remains an integration concern.
+## Context
+
+The product is the whole drone-drive-test platform, not only the browser application. It has three parts with different lifecycles and trust levels: the operator UI, the backend that orchestrates missions and results, and the drones that execute them.
+
+## Decision
+
+Frontend, backend orchestration, and drone integration remain explicit contexts. The NestJS deployment can serve the frontend without coupling browser workflows directly to drone behavior. Shared wire types live in `packages/contracts` and are imported as TypeScript source by all three (frontend, backend, drone mock).
+
+## Consequences
+
+- The browser consumes backend contracts only; it never talks to a drone.
+- The backend is authoritative for platform state.
+- Drone communication remains an integration concern (ADR-0003).
+- A contract change is a compile-time change for every consumer (`npm run check` covers contracts, frontend, backend and drone mock).
+
+## Amendments
+
+- 2026-09: added the `packages/contracts` sentence; earlier text spoke only of "backend contracts".

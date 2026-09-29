@@ -1,14 +1,29 @@
 # Backend splits into Mission, MissionResult, and SignalQuality feature modules
 
-`apps/backend/src` was a single flat directory (14 files) wired into one `AppModule`, with a real circular dependency hidden by the flatness: `MissionResultService.review()` calls `SignalQualityService.invalidate()` on finalize, while `SignalQualityService` reads approved measurements straight from `PrismaMissionResultRepository`.
+**Status:** Accepted. Amended by ADR-0012 (event mechanism).
 
-We split into three `@Module`s along the boundary `domain.md` already draws (Measurements and results vs. Visualization): `MissionModule`, `MissionResultModule`, `SignalQualityModule`. `MissionDispatchSweeper` moves into `MissionModule` (it only ever touched `PrismaMissionRepository`).
+## Context
 
-The `mission-result ↔ signal-quality` cycle is broken by direction, not by `forwardRef`: `MissionResultModule` emits a `ResultRevisionFinalized` event (`EventEmitter2`) instead of calling `SignalQualityService.invalidate()` directly; `SignalQualityModule` subscribes and invalidates itself. `signal-quality → mission-result` remains as the one real import (reading approved measurements); the reverse edge is gone. Signal Quality doesn't need to know Mission Result exists as a concept, only that "the approved set changed."
+`apps/backend/src` was a single flat directory (14 files) wired into one `AppModule`, with a real circular dependency hidden by the flatness: `MissionResultService.review()` called `SignalQualityService.invalidate()` on finalize, while `SignalQualityService` read approved measurements straight from `PrismaMissionResultRepository`.
 
-`MissionError` — generic (`message`, `statusCode`), used by the global exception filter and both `mission` and `mission-result` controllers — was defined inside `mission-repository.ts` despite not being mission-specific. Renamed and relocated to `src/common/api-error.ts` as `ApiError`, imported by all three modules and `main.ts`.
+## Decision
+
+Split into three `@Module`s along the boundary `domain.md` already draws (Measurements and results vs. Visualization): `MissionModule`, `MissionResultModule`, `SignalQualityModule`, plus a global `CommonModule` for shared infrastructure. `MissionDispatchSweeper` lives in `MissionModule` (it only touches `PrismaMissionRepository`).
+
+The `mission-result <-> signal-quality` cycle is broken **by direction**, not by `forwardRef`: `MissionResultModule` emits a `ResultRevisionFinalized` event instead of calling `SignalQualityService.invalidate()`; `SignalQualityModule` subscribes and invalidates itself. `signal-quality -> mission-result` remains as the one real import (reading approved measurements); the reverse edge is gone. Signal Quality does not need to know Mission Result exists as a concept, only that "the approved set changed".
+
+`MissionError` (generic: `message`, `statusCode`) was defined inside `mission-repository.ts` despite not being mission-specific. It is now `ApiError` in `src/common/api-error.ts`, imported by all modules and `main.ts`.
 
 ## Considered options
 
-- **`forwardRef()` circular module imports** for mission-result/signal-quality. Rejected: keeps both edges: doesn't force the direction decision, just hides it inside Nest's DI.
-- **Fold SignalQuality into MissionResultModule.** Rejected: `domain.md` already treats Visualization (global surface, data tile, projection) as distinct from Measurements and results; collapsing them because of today's one caller recreates the flat-file problem one level up.
+- **`forwardRef()` circular module imports** for mission-result/signal-quality. Rejected: keeps both edges; it hides the direction decision inside Nest's DI.
+- **Fold SignalQuality into MissionResultModule.** Rejected: `domain.md` treats Visualization (global surface, data tile, projection) as distinct from Measurements and results; collapsing them because of today's one caller recreates the flat-file problem one level up.
+
+## Consequences
+
+Three modules with one import edge; `MissionModule` is independent. Each module can be reasoned about, and later extracted, on its own.
+
+## Amendments
+
+- 2026-09: the original text named `EventEmitter2`. The code uses a small `DomainEvents` class over Node's `EventEmitter` (ADR-0012).
+- 2026-09: `CommonModule` (global) provides `PrismaService`, `DomainEvents` and `ApiError`; the original text did not mention it.
