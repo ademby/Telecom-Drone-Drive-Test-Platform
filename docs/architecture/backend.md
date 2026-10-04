@@ -1,6 +1,6 @@
 # Backend architecture
 
-Scope: `apps/backend` (NestJS, Prisma with the PostgreSQL driver adapter, class-validator) plus the drone integration harness `apps/drone-mock`. Shared wire types are in `packages/contracts`.
+Scope: `apps/backend` (NestJS, Prisma with the PostgreSQL driver adapter, class-validator). Shared wire types are in `packages/contracts`.
 
 The frontend refactor did not change the backend structure; this document exists so that the whole platform is described in one place and so that statements in ADR-0007 that drifted from the code are corrected (see ADR-0012).
 
@@ -50,7 +50,7 @@ Note: the `revisions` endpoint is an **operator** operation. Earlier docs listed
 
 ### Idempotency
 
-`IdempotencyKey` rows store `(key, missionId)`. When a key is seen again the repository returns the **current** state of that mission; it does not replay the original response and it does not verify that the key was used for the same operation. Keys are global, so clients must generate unique ones (the frontend uses `<command>-<missionId>` or adds a timestamp; the drone mock uses random UUIDs).
+`IdempotencyKey` rows store `(key, missionId)`. When a key is seen again the repository returns the **current** state of that mission; it does not replay the original response and it does not verify that the key was used for the same operation. Keys are global, so clients must generate unique ones (the frontend uses `<command>-<missionId>` or adds a timestamp).
 
 ## 3. Cross-cutting behavior (`main.ts`)
 
@@ -97,11 +97,7 @@ Tables: `Mission`, `RouteRevision`, `MissionResult`, `Measurement`, `ResultRevis
 
 Presentation (palette, thresholds, opacity) is intentionally absent (ADR-0004).
 
-## 8. Drone mock (`apps/drone-mock`)
-
-A development harness, not a drone protocol. It runs on port 3001 and exposes `GET /health`, `GET /planned-missions` (forwards `GET /missions?state=PLANNED`), `POST /missions/:id/claim` and `POST /missions/:id/report`, which forward to the backend's `claim` and `status` endpoints with a fresh UUID `Idempotency-Key`. It is driven by hand or script; it does **not** poll on its own and does **not** upload results. Demo results come from the seed scripts in `tools/db/`.
-
-## 9. Configuration
+## 8. Configuration
 
 | Value | Where | Notes |
 | ----- | ----- | ----- |

@@ -29,12 +29,11 @@ npm run setup
 # npm run resume
 
 
-# Launch the full stack : (frontend, backend, drone-mock):
+# Launch the full stack : frontend & backend
 npm start
 
 # Frontend     http://localhost:5173
 # Backend      http://localhost:3000
-# Drone mock   http://localhost:3001
 
 ## Or run individual applications if needed :
 # npm run dev:backend
@@ -78,5 +77,4 @@ npm run clean     # remove generated/build output
 - `npm` workspaces : app packages own app-specific scripts and dependencies.
 - The frontend exposes `globalThis.compositionRoot` only in Vite development mode.
 - The backend loads `apps/backend/.env` through `dotenv/config`; the checked-in file is only an example.
-- `apps/drone-mock` is a development harness: hand-driven, no polling, no result upload, no authentication. Demo results come from the `tools/db` seeds.
 - Production topology is a backlog: [`docs/future-deployment.md`](docs/future-deployment.md).

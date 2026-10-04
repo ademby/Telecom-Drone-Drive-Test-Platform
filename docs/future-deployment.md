@@ -1,7 +1,7 @@
 # Future tasks — deployment and production
 
 Design notes and backlog only. **Not** part of the completed redesign phase (R-00..R-12). Status (2026-09): none of the items below is implemented.  
-Development remains multi-process (`npm run setup` / `resume` / `start`, Podman DB, Vite, drone-mock). Production collapses to a single-server topology with NestJS delivering the frontend.
+Development remains multi-process (`npm run setup` / `resume` / `start`, Podman DB, Vite). Production collapses to a single-server topology with NestJS delivering the frontend.
 
 Related: `docs/future-features.md`, ADR-0001 (platform boundary), ADR-0003 (drone REST), ADR-0004 (numeric tiles).
 
@@ -20,8 +20,7 @@ NestJS  (API + static SPA)
    ├── REST  — missions, results, signal-quality, health
    └── GET /* — built Vite assets + SPA fallback
    │
-   ├──► PostgreSQL (same host or managed instance)
-   └──► real drones (REST claim / status / upload — no drone-mock)
+   └──► PostgreSQL (same host or managed instance)
 ```
 
 **Principles**
@@ -55,7 +54,6 @@ NestJS  (API + static SPA)
 ### D-03 — Build and release artifact
 
 - [ ] Define a production build command that: checks contracts, builds frontend, builds backend, gathers migrations.
-- [ ] Produce a minimal artifact: backend `dist/`, frontend static assets, Prisma migrations, production `package.json` / lockfile subset — **not** Vite sources, drone-mock, or data-pipeline unless required offline.
 - [ ] Prefer `prisma migrate deploy` on release; never `prisma migrate dev` in production.
 - [ ] Document image or tarball layout if Docker/Podman is used for the **app** process (DB may stay sidecar or external).
 
@@ -84,13 +82,11 @@ NestJS  (API + static SPA)
 
 ### D-07 — Remove or gate development-only surfaces
 
-- [ ] Do not deploy `apps/drone-mock`.
 - [ ] Do not expose `globalThis.compositionRoot` or other DEV-only hooks in production builds (already gated by Vite `import.meta.env.DEV` — verify production bundle).
 - [ ] Confirm `npm run setup` / `resume` remain documented as **developer** lifecycle only.
 
 ### D-08 — Drone integration (production)
 
-- [ ] Replace mock drones with real device credentials and authenticated REST (claim / status / result).
 - [ ] Idempotency and retry behaviour already required by ADR-0003 — verify under unreliable networks.
 - [ ] Network path: drones reach Nest API only; firewall accordingly.
 - [ ] No dependency on operator UI availability for drone lifecycle.
@@ -130,7 +126,7 @@ Out of redesign scope; required before exposing a real network.
 
 - Kubernetes / multi-node orchestration as the default deploy target.
 - Separate BFF in front of Nest.
-- Shipping drone-mock or the Vite dev server to production.
+- Shipping the Vite dev server to production.
 - Using `npm run setup` (seeds + Podman helpers) as production bootstrap.
 - Generic multi-KPI deploy topology before a second KPI exists.
 - Server-side palette / pre-colored tiles (contradicts ADR-0004).
@@ -159,7 +155,6 @@ Out of redesign scope; required before exposing a real network.
 | First-time machine | `npm install` → `npm run setup` | Provision host → artifact → migrate deploy → start Nest |
 | After reboot | `npm run resume` → `npm run start` | systemd/Compose restarts app (+ DB if local) |
 | Seeds | Demo + signal-quality seed scripts | Not on boot |
-| Drone | `apps/drone-mock` | Real devices, authenticated |
 | CORS | Permissive for local ports | Same-origin or strict allow-list |
 
 ---
@@ -169,5 +164,5 @@ Out of redesign scope; required before exposing a real network.
 - Operator opens a single HTTPS URL; UI and API work without a second frontend server.
 - `prisma migrate deploy` is the only migration path on release.
 - Postgres data survives app restarts; backups exist.
-- drone-mock and Vite dev are absent from the production process list.
+- Vite dev is absent from the production process list.
 - Documentation clearly separates developer lifecycle scripts from production boot.

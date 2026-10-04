@@ -5,7 +5,7 @@
 | [`../README.md`](../README.md) | Install, run, scripts |
 | [`domain.md`](domain.md) | Ubiquitous language, current decisions, open questions |
 | [`architecture/frontend.md`](architecture/frontend.md) | Workflows, composition root, panel, map, renderer, debt list |
-| [`architecture/backend.md`](architecture/backend.md) | Modules, endpoints, events, sweeper, tile generation, drone mock |
+| [`architecture/backend.md`](architecture/backend.md) | Modules, endpoints, events, sweeper, tile generation  |
 | [`architecture-diagrams.md`](architecture-diagrams.md) | Mermaid overview diagrams (render on GitHub) |
 | [`uml/`](uml/) | PlantUML class, sequence and state diagrams (14 files) |
 | [`adr/`](adr/) | Architecture decision records |

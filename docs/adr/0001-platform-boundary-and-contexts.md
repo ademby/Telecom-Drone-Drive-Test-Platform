@@ -8,14 +8,14 @@ The product is the whole drone-drive-test platform, not only the browser applica
 
 ## Decision
 
-Frontend, backend orchestration, and drone integration remain explicit contexts. The NestJS deployment can serve the frontend without coupling browser workflows directly to drone behavior. Shared wire types live in `packages/contracts` and are imported as TypeScript source by all three (frontend, backend, drone mock).
+Frontend, backend orchestration, and drone integration remain explicit contexts. The NestJS deployment can serve the frontend without coupling browser workflows directly to drone behavior. Shared wire types live in `packages/contracts` and are imported as TypeScript source by both frontend and backend.
 
 ## Consequences
 
 - The browser consumes backend contracts only; it never talks to a drone.
 - The backend is authoritative for platform state.
 - Drone communication remains an integration concern (ADR-0003).
-- A contract change is a compile-time change for every consumer (`npm run check` covers contracts, frontend, backend and drone mock).
+- A contract change is a compile-time change for every consumer (`npm run check` covers contracts, frontend, and backend).
 
 ## Amendments
 

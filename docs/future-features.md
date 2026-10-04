@@ -65,7 +65,6 @@ Backend is the authority for mission state and projection freshness. The fronten
 
 - Depends on the live channel above (or a dedicated stream).
 - Rendering belongs to a future workflow or map overlay module — not MapController feature creep in the current redesign.
-- `apps/drone-mock` remains the integration stand-in until a real drone feed exists.
 
 ---
 

@@ -80,7 +80,7 @@ A `FAILED` mission is never retried in place: `derive` creates a **new** `DRAFT`
 
 ## 3. System boundaries
 
-The browser only talks to the backend. Drones are **clients** of the backend (ADR-0003): the backend never opens a connection to a drone. In development `apps/drone-mock` is a small HTTP façade that a developer drives by hand; it forwards claim/status calls to the real backend endpoints.
+The browser only talks to the backend. Drones are **clients** of the backend (ADR-0003): the backend never opens a connection to a drone.
 
 ```mermaid
 flowchart LR
@@ -97,16 +97,13 @@ flowchart LR
     end
 
     DB[("PostgreSQL")]
-    DRONE["Drone (external)<br/>apps/drone-mock in dev"]
     CONTRACTS["packages/contracts<br/>shared TypeScript types"]
 
     UI -- "REST /missions, /missions/:id/result,<br/>/signal-quality" --> Backend
-    DRONE -- "REST claim / status / result upload<br/>(drone-initiated)" --> Backend
     Backend --> DB
 
     UI -. "imports types" .-> CONTRACTS
     Backend -. "imports types" .-> CONTRACTS
-    DRONE -. "imports types" .-> CONTRACTS
 ```
 
 ## 4. Frontend startup

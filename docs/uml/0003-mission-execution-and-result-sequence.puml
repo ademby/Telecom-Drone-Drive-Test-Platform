@@ -7,7 +7,7 @@ participant "Operator UI\n(frontend)" as UI
 participant "Backend\n(NestJS)" as API
 participant "DomainEvents" as Events
 participant "SignalQualityService" as SQ
-participant "Drone\n(drone-mock in dev)" as Drone
+participant "Drone" as Drone
 
 == Planning (operator) ==
 Operator -> UI : draw route, fill form, Save

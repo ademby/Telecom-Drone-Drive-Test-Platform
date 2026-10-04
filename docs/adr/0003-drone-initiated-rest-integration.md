@@ -18,5 +18,5 @@ Drones initiate communication through REST: discover planned missions, **claim**
 
 ## Amendments
 
-- 2026-09: recorded current reality. There is no drone authentication or registry; `droneId` in a request body is checked against the mission's assigned drone. `apps/drone-mock` is a hand-driven HTTP façade over claim and status only, does not poll, and does not upload results (demo results come from `tools/db` seeds).
+- 2026-09: recorded current reality. There is no drone authentication or registry; `droneId` in a request body is checked against the mission's assigned drone. 
 - 2026-09: corrected earlier documentation that listed `POST /missions/:id/result/revisions` as a drone call; it is an operator call.
