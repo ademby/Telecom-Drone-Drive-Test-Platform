@@ -4,7 +4,6 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const services = [
   ['frontend', ['run', 'dev:frontend']],
   ['backend', ['run', 'dev:backend']],
-  ['drone', ['run', 'dev:drone']],
 ];
 
 const children = new Map();

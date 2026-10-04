@@ -37,7 +37,6 @@ npm start
 
 ## Or run individual applications if needed :
 # npm run dev:backend
-# npm run dev:drone
 # npm run dev:frontend
 
 ```
