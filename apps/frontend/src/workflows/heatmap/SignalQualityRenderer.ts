@@ -3,8 +3,7 @@ import type BaseLayer from "ol/layer/Base.js";
 import TileLayer from "ol/layer/Tile.js";
 import WebGLTileLayer from "ol/layer/WebGLTile.js";
 import { uiConfig } from "../../ui.config.js";
-import {
-  DEFAULT_SIGNAL_QUALITY_PALETTE,
+import paletteSingleton, {
   type SignalQualityPalette,
 } from "./SignalQualityPalette.js";
 import { SignalQualityTileSource } from "./SignalQualityTileSource.js";
@@ -23,18 +22,10 @@ export interface SignalQualityRenderer {
   dispose(): void;
 }
 
-function buildWebGlStyle(
-  min: number,
-  max: number,
-  palette: SignalQualityPalette,
-) {
+function buildWebGlStyle() {
+  const { min, max, signalQualityPalette: palette } = paletteSingleton;
   const value = ["band", 1];
-  const normalized = [
-    "clamp",
-    ["/", ["-", value, min], max - min || 1],
-    0,
-    1,
-  ];
+  const normalized = ["clamp", ["/", ["-", value, min], max - min || 1], 0, 1];
   const color: unknown[] = ["interpolate", ["linear"], normalized];
   for (const stop of palette) {
     color.push(stop.offset, stop.color);
@@ -47,9 +38,6 @@ export class HttpSignalQualityRenderer implements SignalQualityRenderer {
   private readonly source:
     | SignalQualityTileSource
     | SignalQualityTileSource_ForWebGL;
-  private palette: SignalQualityPalette = DEFAULT_SIGNAL_QUALITY_PALETTE;
-  private min = 0;
-  private max = 100;
 
   constructor(api: SignalQualityApi) {
     if (uiConfig.kpiRenderer === "canvas") {
@@ -69,26 +57,23 @@ export class HttpSignalQualityRenderer implements SignalQualityRenderer {
         opacity: uiConfig.layerOpacity,
         visible: false,
         cacheSize: uiConfig.layerCacheSize,
-        style: buildWebGlStyle(this.min, this.max, this.palette),
+        style: buildWebGlStyle(),
       });
     }
   }
 
   setRange(min: number, max: number, version: string): void {
-    this.min = min;
-    this.max = max;
     this.source.setRange(min, max, version);
     if (this.layer instanceof WebGLTileLayer) {
-      this.layer.setStyle(buildWebGlStyle(min, max, this.palette));
+      this.layer.setStyle(buildWebGlStyle());
       this.layer.updateStyleVariables({ kpiMin: min, kpiMax: max });
     }
   }
 
   setPalette(palette: SignalQualityPalette): void {
-    this.palette = palette;
     this.source.setPalette(palette);
     if (this.layer instanceof WebGLTileLayer) {
-      this.layer.setStyle(buildWebGlStyle(this.min, this.max, palette));
+      this.layer.setStyle(buildWebGlStyle());
     }
   }
 

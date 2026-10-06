@@ -1,7 +1,4 @@
-import {
-  DEFAULT_SIGNAL_QUALITY_PALETTE,
-  paletteToWorkerStops,
-} from "./SignalQualityPalette";
+import paletteSingleton, { paletteToWorkerStops } from "./SignalQualityPalette";
 import { uiConfig } from "../../ui.config.js";
 
 const TILE_SIZE = uiConfig.tileSize;
@@ -12,10 +9,9 @@ let min = 0;
 let max = 100;
 let paletteLut = new Uint8Array(LUT_SIZE * 4);
 
-// Seeded with the same defaults as `DEFAULT_SIGNAL_QUALITY_PALETTE`.
 // HeatmapWorkflow pushes replacements via a `"palette"` message so edits repaint live.
 let stops: Array<[number, string]> = paletteToWorkerStops(
-  DEFAULT_SIGNAL_QUALITY_PALETTE,
+  paletteSingleton.signalQualityPalette,
 );
 buildPaletteLut();
 

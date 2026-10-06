@@ -64,22 +64,14 @@ export function colorMeasurementsBySignalQuality<
     readonly id: string;
     readonly rawObservations: Readonly<Record<string, number>>;
   },
->(
-  measurements: readonly T[],
-  palette: SignalQualityPalette = DEFAULT_SIGNAL_QUALITY_PALETTE,
-): Map<string, string> {
+>(measurements: readonly T[]): Map<string, string> {
   const values = measurements.map(
     (measurement) => measurement.rawObservations[SIGNAL_QUALITY_KPI_KEY] ?? 0,
   );
-  const min = values.length ? Math.min(...values) : 0;
-  const max = values.length ? Math.max(...values) : 0;
   const colors = new Map<string, string>();
   for (const measurement of measurements) {
     const value = measurement.rawObservations[SIGNAL_QUALITY_KPI_KEY] ?? 0;
-    colors.set(
-      measurement.id,
-      sampleSignalQualityPalette(palette, value, min, max),
-    );
+    colors.set(measurement.id, sampleSignalQualityPalette(value));
   }
   return colors;
 }
@@ -91,15 +83,10 @@ export function colorMeasurementsBySignalQuality<
  * stops; O(stops), fine for per-feature point styling (not the raster LUT path the
  * worker uses for tiles).
  */
-export function sampleSignalQualityPalette(
-  palette: SignalQualityPalette,
-  value: number,
-  min: number,
-  max: number,
-): string {
-  const span = max - min;
-  const t = span > 0 ? clamp01((value - min) / span) : 0;
-
+export function sampleSignalQualityPalette(value: number): string {
+  const span = paletteSingleton.max - paletteSingleton.min;
+  const t = span > 0 ? clamp01((value - paletteSingleton.min) / span) : 0;
+  const palette = paletteSingleton.signalQualityPalette;
   let lower = palette[0];
   let upper = palette[palette.length - 1];
   for (let i = 1; i < palette.length; i += 1) {
@@ -142,3 +129,27 @@ export function paletteToWorkerStops(
 ): Array<[number, string]> {
   return palette.map((stop) => [stop.offset, stop.color]);
 }
+
+class PaletteSingleton {
+  signalQualityPalette: SignalQualityPalette;
+  min: number;
+  max: number;
+  constructor() {
+    this.signalQualityPalette = DEFAULT_SIGNAL_QUALITY_PALETTE;
+    this.min = 0;
+    this.max = 100;
+  }
+  setRange(min: number, max: number) {
+    this.min = min;
+    this.max = max;
+  }
+  setSignalQualityPalette(palette: SignalQualityPalette): void {
+    this.signalQualityPalette = palette;
+  }
+  resetSignalQualityPalette(){
+    this.signalQualityPalette = DEFAULT_SIGNAL_QUALITY_PALETTE;
+  }
+}
+
+const paletteSingleton = new PaletteSingleton();
+export default paletteSingleton;

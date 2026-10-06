@@ -13,11 +13,7 @@ import type OlMap from "ol/Map.js";
 import { transform } from "ol/proj.js";
 import type Projection from "ol/proj/Projection.js";
 import type VectorSource from "ol/source/Vector.js";
-import {
-  colorMeasurementsBySignalQuality,
-  DEFAULT_SIGNAL_QUALITY_PALETTE,
-  type SignalQualityPalette,
-} from "../heatmap/SignalQualityPalette.js";
+import { colorMeasurementsBySignalQuality } from "../heatmap/SignalQualityPalette.js";
 import MissionWorkflow from "./MissionWorkflow.js";
 
 /** Features built per animation frame while loading a review result. */
@@ -44,7 +40,6 @@ export class MeasurementReviewController {
   private readonly missionWorkflow: MissionWorkflow;
   private readonly source: VectorSource;
   private readonly projection: Projection;
-  private readonly palette: SignalQualityPalette;
   private readonly selectInteraction: Select;
   private readonly dragBox: DragBox;
   private featuresById = new Map<string, Feature<Point>>();
@@ -57,11 +52,9 @@ export class MeasurementReviewController {
     layer: VectorLayer<VectorSource>,
     projection: Projection,
     missionWorkflow: MissionWorkflow,
-    palette: SignalQualityPalette = DEFAULT_SIGNAL_QUALITY_PALETTE,
   ) {
     this.source = source;
     this.projection = projection;
-    this.palette = palette;
     this.missionWorkflow = missionWorkflow;
 
     // Plain click selects just that point; shift-click toggles it into/out of the existing
@@ -106,10 +99,7 @@ export class MeasurementReviewController {
     this.rejectedIds = new Set(
       result.activeRevision?.rejectedMeasurementIds ?? [],
     );
-    const colors = colorMeasurementsBySignalQuality(
-      result.measurements,
-      this.palette,
-    );
+    const colors = colorMeasurementsBySignalQuality(result.measurements);
 
     let batch: Feature<Point>[] = [];
     for (const measurement of result.measurements) {

@@ -1,11 +1,10 @@
 import type { SignalQualityApi } from "@drone-drive/contracts/signal-quality";
-import { MapController } from "../../map/MapController.js";
 import OperationsPanel from "../../common/OperationsPanel.js";
+import { MapController } from "../../map/MapController.js";
 import { HeatmapOperationsView } from "./HeatmapOperationsView.js";
 import HttpSignalQualityApi from "./HttpSignalQualityApi.js";
 import SignalQualityLegend from "./SignalQualityLegend.js";
-import {
-  DEFAULT_SIGNAL_QUALITY_PALETTE,
+import paletteSingleton, {
   isValidPalette,
   type SignalQualityPalette,
 } from "./SignalQualityPalette.js";
@@ -39,7 +38,6 @@ export class HeatmapWorkflow {
   private readonly heatmapView: HeatmapOperationsView;
   private dataLoaded = false;
   private visible = false;
-  private palette: SignalQualityPalette;
 
   constructor(options: HeatmapWorkflowOptions) {
     this.mapController = options.mapController;
@@ -55,15 +53,14 @@ export class HeatmapWorkflow {
       this.mapController.map.addControl(this.legend);
     }
 
-    this.palette = DEFAULT_SIGNAL_QUALITY_PALETTE;
-    this.setPalette(this.palette);
+    this.setPalette(paletteSingleton.signalQualityPalette);
 
     this.heatmapView = new HeatmapOperationsView(this);
     this.operationsPanel.registerView(this.heatmapView.panelView);
   }
 
   getPalette(): SignalQualityPalette {
-    return this.palette;
+    return paletteSingleton.signalQualityPalette;
   }
 
   setPalette(palette: SignalQualityPalette): void {
@@ -72,17 +69,20 @@ export class HeatmapWorkflow {
         "Signal Quality palette must have at least two stops spanning 0..1 with valid hex colors.",
       );
     }
-    this.palette = palette;
+    paletteSingleton.setSignalQualityPalette(palette);
     this.renderer.setPalette(palette);
     this.legend.setPalette(palette);
   }
 
   resetPalette(): void {
-    this.setPalette(DEFAULT_SIGNAL_QUALITY_PALETTE);
+    paletteSingleton.resetSignalQualityPalette();
+    this.legend.setPalette(paletteSingleton.signalQualityPalette);
+    this.renderer.setPalette(paletteSingleton.signalQualityPalette);
   }
 
   async load(): Promise<void> {
     const range = await this.signalQualityApi.getRange();
+    paletteSingleton.setRange(range.min, range.max);
     this.renderer.setRange(range.min, range.max, range.version);
     this.legend.setRange(range.min, range.max);
     this.dataLoaded = true;
@@ -100,6 +100,7 @@ export class HeatmapWorkflow {
     const range = await this.signalQualityApi.getRange();
     this.renderer.setRange(range.min, range.max, range.version);
     this.legend.setRange(range.min, range.max);
+    paletteSingleton.setRange(range.min, range.max);
   }
 
   isVisible(): boolean {

@@ -40,8 +40,6 @@ export class SignalQualityTileSource extends ImageTileSource {
     }
   >();
 
-  private min = 0;
-  private max = 100;
   private version = "unversioned";
   /** Bumped on palette/range presentation changes so OL re-invokes the loader. */
   private presentationGeneration = 0;
@@ -84,8 +82,6 @@ export class SignalQualityTileSource extends ImageTileSource {
 
   setRange(min: number, max: number, version: string): void {
     const versionChanged = this.version !== version;
-    this.min = min;
-    this.max = max;
     this.version = version;
 
     if (versionChanged) {
