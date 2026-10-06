@@ -14,6 +14,7 @@
     "dev:frontend": "npm run dev --workspace @drone-drive/frontend",
     "dev:backend": "npm run dev --workspace @drone-drive/backend",
     "dev:backend:debug": "npm run debug --workspace @drone-drive/backend",
+    "drone:cockpit": "node tools/drone-cockpit/cli.mts",
     "build": "npm run contracts:check && npm run frontend:build && npm run backend:build",
     "check": "npm run contracts:check && npm run frontend:check && npm run backend:check",
     "contracts:check": "npm run check --workspace @drone-drive/contracts",
