@@ -37,6 +37,7 @@ export class CompositionRoot {
     this.navigationWorkflow = new NavigationWorkflow({
       mapController: this.mapController,
       adminDataset: this.adminDataset,
+      operationsPanel: this.operationsPanel,
     });
 
     this.heatmapWorkflow = new HeatmapWorkflow({

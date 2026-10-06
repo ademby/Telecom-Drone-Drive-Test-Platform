@@ -6,6 +6,7 @@ import Select from "ol/interaction/Select.js";
 import LayerGroup from "ol/layer/Group.js";
 import VectorLayer from "ol/layer/Vector.js";
 import VectorSource from "ol/source/Vector.js";
+import OperationsPanel from "../../common/OperationsPanel.js";
 import { MapController } from "../../map/MapController.js";
 import {
   activeStyle,
@@ -18,6 +19,7 @@ import { AdminNode } from "./AdminNode.js";
 import Breadcrumbs from "./Breadcrumbs.js";
 import LocationDisplay from "./LocationDisplay.js";
 import LocationSearch from "./LocationSearch.js";
+import { NavigationOperationsView } from "./NavigationOperationsView.js";
 import type { NavigationState } from "./NavigationState.js";
 import { shouldUseDefaultTransition } from "./navigationTransition.js";
 
@@ -45,6 +47,7 @@ export interface NavigationDataset {
 export interface NavigationWorkflowOptions {
   readonly mapController: MapController;
   readonly adminDataset: NavigationDataset;
+  readonly operationsPanel: OperationsPanel;
 }
 
 /**
@@ -61,6 +64,7 @@ export class NavigationWorkflow {
 
   private readonly mapController: MapController;
   private readonly adminDataset: NavigationDataset;
+  private readonly operationsPanel: OperationsPanel;
 
   private readonly locationDisplay: LocationDisplay;
 
@@ -71,13 +75,18 @@ export class NavigationWorkflow {
 
   private readonly activeLayer: VectorLayer<VectorSource>;
 
+  private readonly layerGroup: LayerGroup;
+
   private readonly adminSelect: Select;
 
   private previewState: NavigationSnapshot | null = null;
 
+  private navigationView: NavigationOperationsView;
+
   constructor(options: NavigationWorkflowOptions) {
     this.mapController = options.mapController;
     this.adminDataset = options.adminDataset;
+    this.operationsPanel = options.operationsPanel;
 
     this.locationDisplay = new Breadcrumbs((id) => this.selectNodeById(id));
     this.mapController.map.addControl(this.locationDisplay);
@@ -102,11 +111,10 @@ export class NavigationWorkflow {
       style: hoverStyle,
       zIndex: 40,
     });
-    this.mapController.map.addLayer(
-      new LayerGroup({
-        layers: [contextLayer, this.activeLayer, selectionLayer, hoverLayer],
-      }),
-    );
+    this.layerGroup = new LayerGroup({
+      layers: [contextLayer, this.activeLayer, selectionLayer, hoverLayer],
+    });
+    this.mapController.map.addLayer(this.layerGroup);
 
     this.adminSelect = new Select({
       condition: click,
@@ -130,6 +138,9 @@ export class NavigationWorkflow {
     this.mapController.map.addControl(
       new Control({ element: locationSearch.element }),
     );
+
+    this.navigationView = new NavigationOperationsView(this);
+    this.operationsPanel.registerView(this.navigationView.panelView);
   }
 
   getSearchOptions(): NavigationSearchOption[] {
@@ -237,6 +248,14 @@ export class NavigationWorkflow {
 
   setSelectionEnabled(enabled: boolean): void {
     this.adminSelect.setActive(enabled);
+  }
+
+  toggleSelectionNavigation(): void {
+    this.setSelectionEnabled(!this.adminSelect.getActive());
+  }
+
+  toggleNavigationLayers(): void {
+    this.layerGroup.setVisible(!this.layerGroup.getVisible());
   }
 
   private captureNavigation(): NavigationSnapshot {
