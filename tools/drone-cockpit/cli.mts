@@ -265,7 +265,7 @@ function buildMeasurements(
     value = Math.min(99, Math.max(15, value + (Math.random() - 0.5) * cfg.noise));
     const jitter = (Math.random() - 0.5) * 3; // metres of GNSS jitter
     let signal = Math.round(value * 100) / 100;
-    if (Math.random() < cfg.outlierRate) signal = Math.random() < 0.5 ? 0 : 140; // obviously bad sample
+    if (Math.random() < cfg.outlierRate) signal = Math.random() < 0.5 ? 22 : 100; // obviously bad sample
     return {
       capturedAt: new Date(startedAt.getTime() + (i * step * 1000) / cfg.speed).toISOString(),
       longitude: Number((p.lon + jitter / mLon(p.lat)).toFixed(6)),
