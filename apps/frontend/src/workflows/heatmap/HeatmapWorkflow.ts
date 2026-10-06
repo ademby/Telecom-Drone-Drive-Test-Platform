@@ -50,9 +50,9 @@ export class HeatmapWorkflow {
     this.signalQualityApi = new HttpSignalQualityApi();
     this.renderer = new HttpSignalQualityRenderer(this.signalQualityApi);
 
-    options.mapController.map.addLayer(this.renderer.layer);
+    this.mapController.map.addLayer(this.renderer.layer);
     if (this.legend instanceof SignalQualityLegend) {
-      options.mapController.map.addControl(this.legend);
+      this.mapController.map.addControl(this.legend);
     }
 
     this.palette = DEFAULT_SIGNAL_QUALITY_PALETTE;
