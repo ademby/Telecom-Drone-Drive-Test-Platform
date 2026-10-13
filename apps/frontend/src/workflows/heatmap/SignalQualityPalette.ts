@@ -15,9 +15,10 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
 export const DEFAULT_SIGNAL_QUALITY_PALETTE: SignalQualityPalette = [
   { offset: 0.0, color: "#000000" },
-  { offset: 0.2, color: "#e01b24" },
-  { offset: 0.4, color: "#9141ac" },
-  { offset: 0.5, color: "#1a5fb4" },
+  { offset: 0.075, color: "#c01c28" },
+  { offset: 0.3, color: "#ff7800" },
+  { offset: 0.4, color: "#f6d32d" },
+  { offset: 0.5, color: "#57e389" },
   { offset: 0.6, color: "#00fffb" },
   { offset: 1.0, color: "#ffffff" },
 ];
@@ -26,6 +27,14 @@ export const DEFAULT_SIGNAL_QUALITY_PALETTE_2: SignalQualityPalette = [
   { offset: 0.2, color: "#e01b24" },
   { offset: 0.4, color: "#ffee00" },
   { offset: 0.5, color: "#00ff0d" },
+  { offset: 0.6, color: "#00fffb" },
+  { offset: 1.0, color: "#ffffff" },
+];
+export const DEFAULT_SIGNAL_QUALITY_PALETTE_3: SignalQualityPalette = [
+  { offset: 0.0, color: "#000000" },
+  { offset: 0.2, color: "#e01b24" },
+  { offset: 0.4, color: "#9141ac" },
+  { offset: 0.5, color: "#1a5fb4" },
   { offset: 0.6, color: "#00fffb" },
   { offset: 1.0, color: "#ffffff" },
 ];
